@@ -8,14 +8,17 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run server\" \"npm run frontend\"",
+    "dev": "concurrently \"npm run server\" ",
     "server": "node index.js",
     "frontend": "cd frontend && npx expo start"
   },
   "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.0",
-    "bcrypt": "^5.1.0"
+    "mysql2": "^3.9.7"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
