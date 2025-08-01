@@ -1,0 +1,3 @@
+// Location model definition
+
+// ...existing code...
