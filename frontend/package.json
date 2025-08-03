@@ -1,7 +1,7 @@
 {
-  "name": "eventos-app",
+  "name": "eventos-app-frontend",
   "version": "1.0.0",
-  "description": "Aplicación web para gestión de eventos",
+  "description": "Frontend de la aplicación web para gestión de eventos",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
@@ -30,7 +30,7 @@
     "tailwindcss": "^3.3.3",
     "vite": "^4.4.5"
   },
-  "keywords": ["react", "eventos", "autenticacion"],
+  "keywords": ["react", "eventos", "frontend"],
   "author": "Tu Nombre",
   "license": "MIT"
 } 
