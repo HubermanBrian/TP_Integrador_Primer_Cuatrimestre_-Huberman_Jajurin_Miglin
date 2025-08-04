@@ -40,7 +40,8 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Rutas de la API
-app.use('/api/events', eventsRouter);
+app.use('/api/event', eventsRouter); // Cambiado a /api/event según la consigna
+app.use('/api/events', eventsRouter); // Mantener compatibilidad
 app.use('/api/users', userRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/event-locations', eventLocationRouter);

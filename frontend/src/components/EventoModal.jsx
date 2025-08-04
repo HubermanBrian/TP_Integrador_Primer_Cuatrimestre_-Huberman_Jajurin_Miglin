@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar, MapPin, Tag, Image, DollarSign, FileText } from 'lucide-react';
-
-const TAGS = ['Música', 'Tecnología', 'Arte', 'Deportes', 'Cine', 'Educación'];
+import apiService from '../services/api';
 
 export default function EventoModal({ open, onClose, onSave, initialData }) {
   const [form, setForm] = useState({
@@ -14,6 +13,28 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
     descripcion: ''
   });
   const [errors, setErrors] = useState({});
+  const [availableTags, setAvailableTags] = useState([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        setLoadingTags(true);
+        const tags = await apiService.getTags();
+        setAvailableTags(tags);
+      } catch (err) {
+        console.error('Error fetching tags:', err);
+        // Fallback to empty array if API fails
+        setAvailableTags([]);
+      } finally {
+        setLoadingTags(false);
+      }
+    };
+
+    if (open) {
+      fetchTags();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (initialData) {
@@ -148,18 +169,29 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Tags</label>
-            <div className="flex flex-wrap gap-2">
-              {TAGS.map(tag => (
-                <button
-                  type="button"
-                  key={tag}
-                  className={`px-3 py-1 rounded-full border text-xs font-semibold transition-colors duration-200 ${form.tags.includes(tag) ? 'bg-primary text-white border-primary' : 'bg-gray-100 text-primary border-gray-200 hover:bg-primary/10'}`}
-                  onClick={() => handleTagToggle(tag)}
-                >
-                  <Tag className="w-3 h-3 inline mr-1" />{tag}
-                </button>
-              ))}
-            </div>
+            {loadingTags ? (
+              <div className="flex items-center gap-2 text-gray-500">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <span className="text-sm">Cargando tags...</span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {availableTags.length === 0 ? (
+                  <p className="text-sm text-gray-500">No hay tags disponibles</p>
+                ) : (
+                  availableTags.map(tag => (
+                    <button
+                      type="button"
+                      key={tag.id}
+                      className={`px-3 py-1 rounded-full border text-xs font-semibold transition-colors duration-200 ${form.tags.includes(tag.name) ? 'bg-primary text-white border-primary' : 'bg-gray-100 text-primary border-gray-200 hover:bg-primary/10'}`}
+                      onClick={() => handleTagToggle(tag.name)}
+                    >
+                      <Tag className="w-3 h-3 inline mr-1" />{tag.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
             {errors.tags && <p className="text-xs text-red-500 mt-1">{errors.tags}</p>}
           </div>
           <div>

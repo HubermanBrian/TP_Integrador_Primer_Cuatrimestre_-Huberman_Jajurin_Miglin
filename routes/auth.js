@@ -6,27 +6,37 @@ const bcrypt = require('bcrypt');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_key';
 
-// Registro de usuario
+// Registro de usuario usando stored procedure
 router.post('/register', async (req, res) => {
     const { username, password, first_name, last_name } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: 'Username y password requeridos' });
     }
     try {
-        // Verificar si el usuario ya existe
-        const { rows: existing } = await db.query('SELECT id FROM users WHERE username = $1', [username]);
-        if (existing.length > 0) {
-            return res.status(409).json({ error: 'El usuario ya existe' });
-        }
+        // Hash the password
         const hashed = await bcrypt.hash(password, 10);
-        const insertSql = `
-            INSERT INTO users (username, password, first_name, last_name)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, username, first_name, last_name
-        `;
-        const { rows } = await db.query(insertSql, [username, hashed, first_name || '', last_name || '']);
-        res.status(201).json(rows[0]);
+        
+        // Use the stored procedure for registration
+        const { rows } = await db.query(
+            'SELECT * FROM register_user($1, $2, $3, $4)',
+            [username, hashed, first_name || '', last_name || '']
+        );
+        
+        const result = rows[0];
+        
+        if (result.success) {
+            res.status(201).json({
+                id: result.id,
+                username: result.username,
+                first_name: result.first_name,
+                last_name: result.last_name,
+                message: result.message
+            });
+        } else {
+            res.status(409).json({ error: result.message });
+        }
     } catch (err) {
+        console.error('Error en registro:', err);
         res.status(500).json({ error: 'Error en el registro' });
     }
 });

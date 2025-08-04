@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, User, Calendar, ArrowLeft, Check } from 'lucide-react'
+import apiService from '../services/api'
 
 const SignUpPage = () => {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -16,6 +18,7 @@ const SignUpPage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState({})
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const validateForm = () => {
     const newErrors = {}
@@ -78,12 +81,34 @@ const SignUpPage = () => {
     }
 
     setIsLoading(true)
+    setErrors({})
+    setSuccessMessage('')
     
-    // Simular llamada a la API
-    setTimeout(() => {
+    try {
+      const userData = {
+        username: formData.username,
+        password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name
+      }
+      
+      const response = await apiService.register(userData)
+      
+      setSuccessMessage('¡Cuenta creada exitosamente! Redirigiendo al login...')
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        navigate('/login')
+      }, 2000)
+      
+    } catch (error) {
+      console.error('Registration error:', error)
+      setErrors({ 
+        general: error.message || 'Error al crear la cuenta. Por favor, intenta de nuevo.' 
+      })
+    } finally {
       setIsLoading(false)
-      console.log('Sign up attempt:', formData)
-    }, 2000)
+    }
   }
 
   const passwordStrength = () => {
@@ -141,6 +166,28 @@ const SignUpPage = () => {
           className="card p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Success Message */}
+            {successMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex">
+                  <Check className="h-5 w-5 text-green-400" />
+                  <div className="ml-3">
+                    <p className="text-sm text-green-800">{successMessage}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* General Error Message */}
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="ml-3">
+                    <p className="text-sm text-red-800">{errors.general}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>

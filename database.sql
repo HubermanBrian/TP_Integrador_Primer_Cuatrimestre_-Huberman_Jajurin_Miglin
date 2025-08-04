@@ -5061,3 +5061,206 @@ ALTER TABLE ONLY public.locations
 -- PostgreSQL database dump complete
 --
 
+-- =============================================
+-- STORED PROCEDURES
+-- =============================================
+
+-- Stored Procedure for User Registration
+CREATE OR REPLACE FUNCTION register_user(
+    p_username VARCHAR,
+    p_password VARCHAR,
+    p_first_name VARCHAR,
+    p_last_name VARCHAR
+)
+RETURNS TABLE(
+    id INTEGER,
+    username VARCHAR,
+    first_name VARCHAR,
+    last_name VARCHAR,
+    success BOOLEAN,
+    message VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_user_id INTEGER;
+    v_hashed_password VARCHAR;
+BEGIN
+    -- Check if username already exists
+    IF EXISTS (SELECT 1 FROM users WHERE username = p_username) THEN
+        RETURN QUERY SELECT 
+            NULL::INTEGER as id,
+            NULL::VARCHAR as username,
+            NULL::VARCHAR as first_name,
+            NULL::VARCHAR as last_name,
+            FALSE as success,
+            'El usuario ya existe'::VARCHAR as message;
+        RETURN;
+    END IF;
+    
+    -- Hash the password (in a real implementation, this should be done in the application layer)
+    -- For now, we'll store it as-is, but in production use bcrypt or similar
+    v_hashed_password := p_password;
+    
+    -- Insert the new user
+    INSERT INTO users (username, password, first_name, last_name)
+    VALUES (p_username, v_hashed_password, p_first_name, p_last_name)
+    RETURNING id INTO v_user_id;
+    
+    -- Return success response
+    RETURN QUERY SELECT 
+        v_user_id as id,
+        p_username as username,
+        p_first_name as first_name,
+        p_last_name as last_name,
+        TRUE as success,
+        'Usuario registrado exitosamente'::VARCHAR as message;
+        
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Return error response
+        RETURN QUERY SELECT 
+            NULL::INTEGER as id,
+            NULL::VARCHAR as username,
+            NULL::VARCHAR as first_name,
+            NULL::VARCHAR as last_name,
+            FALSE as success,
+            'Error al registrar usuario: ' || SQLERRM::VARCHAR as message;
+END;
+$$;
+
+-- Stored Procedure for Getting Events with Complete Information
+CREATE OR REPLACE FUNCTION get_events_with_details(
+    p_limit INTEGER DEFAULT 50,
+    p_offset INTEGER DEFAULT 0,
+    p_category_id INTEGER DEFAULT NULL,
+    p_location_id INTEGER DEFAULT NULL,
+    p_search_term VARCHAR DEFAULT NULL,
+    p_name VARCHAR DEFAULT NULL,
+    p_startdate DATE DEFAULT NULL,
+    p_tag VARCHAR DEFAULT NULL
+)
+RETURNS TABLE(
+    id INTEGER,
+    name VARCHAR,
+    description VARCHAR,
+    start_date TIMESTAMP,
+    duration_in_minutes INTEGER,
+    price NUMERIC,
+    enabled_for_enrollment BIT,
+    max_assistance INTEGER,
+    category_name VARCHAR,
+    location_name VARCHAR,
+    location_address VARCHAR,
+    location_latitude NUMERIC,
+    location_longitude NUMERIC,
+    creator_id INTEGER,
+    creator_username VARCHAR,
+    creator_first_name VARCHAR,
+    creator_last_name VARCHAR,
+    creator_email VARCHAR,
+    tags TEXT[]
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.name,
+        e.description,
+        e.start_date,
+        e.duration_in_minutes,
+        e.price,
+        e.enabled_for_enrollment,
+        e.max_assistance,
+        ec.name as category_name,
+        el.name as location_name,
+        el.full_address as location_address,
+        el.latitude as location_latitude,
+        el.longitude as location_longitude,
+        u.id as creator_id,
+        u.username as creator_username,
+        u.first_name as creator_first_name,
+        u.last_name as creator_last_name,
+        u.email as creator_email,
+        ARRAY_AGG(t.name) FILTER (WHERE t.name IS NOT NULL) as tags
+    FROM events e
+    LEFT JOIN event_categories ec ON e.id_event_category = ec.id
+    LEFT JOIN event_locations el ON e.id_event_location = el.id
+    LEFT JOIN users u ON e.id_creator_user = u.id
+    LEFT JOIN event_tags et ON e.id = et.id_event
+    LEFT JOIN tags t ON et.id_tag = t.id
+    WHERE (p_category_id IS NULL OR e.id_event_category = p_category_id)
+      AND (p_location_id IS NULL OR e.id_event_location = p_location_id)
+      AND (p_search_term IS NULL OR e.name ILIKE '%' || p_search_term || '%' OR e.description ILIKE '%' || p_search_term || '%')
+      AND (p_name IS NULL OR e.name ILIKE '%' || p_name || '%')
+      AND (p_startdate IS NULL OR DATE(e.start_date) = p_startdate)
+      AND (p_tag IS NULL OR EXISTS (
+          SELECT 1 FROM event_tags et2 
+          JOIN tags t2 ON et2.id_tag = t2.id 
+          WHERE et2.id_event = e.id AND t2.name ILIKE '%' || p_tag || '%'
+      ))
+    GROUP BY e.id, ec.name, el.name, el.full_address, el.latitude, el.longitude, u.id, u.username, u.first_name, u.last_name, u.email
+    ORDER BY e.start_date ASC
+    LIMIT p_limit OFFSET p_offset;
+END;
+$$;
+
+-- Stored Procedure for Getting Event Details by ID
+CREATE OR REPLACE FUNCTION get_event_by_id(p_event_id INTEGER)
+RETURNS TABLE(
+    id INTEGER,
+    name VARCHAR,
+    description VARCHAR,
+    start_date TIMESTAMP,
+    duration_in_minutes INTEGER,
+    price NUMERIC,
+    enabled_for_enrollment BIT,
+    max_assistance INTEGER,
+    category_name VARCHAR,
+    location_name VARCHAR,
+    location_address VARCHAR,
+    location_latitude NUMERIC,
+    location_longitude NUMERIC,
+    creator_username VARCHAR,
+    creator_first_name VARCHAR,
+    creator_last_name VARCHAR,
+    tags TEXT[],
+    enrollments_count INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.name,
+        e.description,
+        e.start_date,
+        e.duration_in_minutes,
+        e.price,
+        e.enabled_for_enrollment,
+        e.max_assistance,
+        ec.name as category_name,
+        el.name as location_name,
+        el.full_address as location_address,
+        el.latitude as location_latitude,
+        el.longitude as location_longitude,
+        u.username as creator_username,
+        u.first_name as creator_first_name,
+        u.last_name as creator_last_name,
+        ARRAY_AGG(t.name) FILTER (WHERE t.name IS NOT NULL) as tags,
+        COUNT(ee.id)::INTEGER as enrollments_count
+    FROM events e
+    LEFT JOIN event_categories ec ON e.id_event_category = ec.id
+    LEFT JOIN event_locations el ON e.id_event_location = el.id
+    LEFT JOIN users u ON e.id_creator_user = u.id
+    LEFT JOIN event_tags et ON e.id = et.id_event
+    LEFT JOIN tags t ON et.id_tag = t.id
+    LEFT JOIN event_enrollments ee ON e.id = ee.id_event
+    WHERE e.id = p_event_id
+    GROUP BY e.id, ec.name, el.name, el.full_address, el.latitude, el.longitude, u.username, u.first_name, u.last_name;
+END;
+$$;
+

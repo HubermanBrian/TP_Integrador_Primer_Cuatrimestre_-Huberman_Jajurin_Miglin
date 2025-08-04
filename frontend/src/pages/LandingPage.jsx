@@ -1,8 +1,31 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Calendar, MapPin, Users, Star, ArrowRight, Play, Shield, Zap } from 'lucide-react'
+import apiService from '../services/api'
 
 const LandingPage = () => {
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUpcomingEvents = async () => {
+      try {
+        setLoading(true);
+        const events = await apiService.getEvents({ limit: 3 });
+        setUpcomingEvents(events);
+      } catch (err) {
+        console.error('Error fetching upcoming events:', err);
+        // Fallback to empty array if API fails
+        setUpcomingEvents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUpcomingEvents();
+  }, []);
+
   const features = [
     {
       icon: <Calendar className="w-8 h-8" />,
@@ -23,33 +46,6 @@ const LandingPage = () => {
       icon: <Star className="w-8 h-8" />,
       title: "EvenTroca",
       description: "Crea recuerdos inolvidables en cada evento"
-    }
-  ]
-
-  const upcomingEvents = [
-    {
-      id: 1,
-      name: "Concierto de Rock",
-      date: "15 Mar 2024",
-      location: "Estadio Monumental",
-      price: "$150",
-      image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop"
-    },
-    {
-      id: 2,
-      name: "Festival de Jazz",
-      date: "22 Mar 2024",
-      location: "Teatro Colón",
-      price: "$200",
-      image: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=400&h=300&fit=crop"
-    },
-    {
-      id: 3,
-      name: "Exposición de Arte",
-      date: "28 Mar 2024",
-      location: "Museo de Arte Moderno",
-      price: "$80",
-      image: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop"
     }
   ]
 
@@ -188,45 +184,58 @@ const LandingPage = () => {
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {upcomingEvents.map((event, index) => (
-              <motion.div
-                key={event.id}
-                className="card hover:shadow-xl transition-all duration-300 hover:-translate-y-2 scroll-animate"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className="relative h-48 overflow-hidden">
-                  <img 
-                    src={event.image} 
-                    alt={event.name}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
-                  />
-                  <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 rounded-full text-sm font-medium">
-                    {event.price}
-                  </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-500">Cargando eventos...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {upcomingEvents.length === 0 ? (
+                <div className="col-span-full text-center text-gray-500 py-12">
+                  No hay eventos próximos disponibles.
                 </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-secondary mb-2">
-                    {event.name}
-                  </h3>
-                  <div className="flex items-center text-gray-600 mb-2">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    {event.date}
-                  </div>
-                  <div className="flex items-center text-gray-600 mb-4">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    {event.location}
-                  </div>
-                  <button className="btn-primary w-full">
-                    Ver Detalles
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+              ) : (
+                upcomingEvents.map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    className="card hover:shadow-xl transition-all duration-300 hover:-translate-y-2 scroll-animate"
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <div className="relative h-48 overflow-hidden">
+                      <img 
+                        src={event.image_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop'} 
+                        alt={event.name}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                      />
+                      <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 rounded-full text-sm font-medium">
+                        {event.price === 0 ? 'Gratis' : `$${event.price}`}
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-xl font-semibold text-secondary mb-2">
+                        {event.name}
+                      </h3>
+                      <div className="flex items-center text-gray-600 mb-2">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        {new Date(event.start_date).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center text-gray-600 mb-4">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        {event.location_name}
+                      </div>
+                      <Link to={`/evento/${event.id}`} className="btn-primary w-full">
+                        Ver Detalles
+                      </Link>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </section>
 

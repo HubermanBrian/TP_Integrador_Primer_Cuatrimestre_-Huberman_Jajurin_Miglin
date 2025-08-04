@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const jwt = require('jsonwebtoken');
+const { authenticateToken } = require('../middleware/auth');
 
 // POST /api/user/login
 router.post('/login', async (req, res) => {
@@ -47,6 +48,83 @@ router.post('/login', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Database error' });
+    }
+});
+
+// GET /api/users/me/events/created - Obtener eventos creados por el usuario
+router.get('/me/events/created', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const result = await db.query(`
+            SELECT 
+                e.id,
+                e.name,
+                e.description,
+                e.start_date,
+                e.duration_in_minutes,
+                e.price,
+                e.enabled_for_enrollment,
+                e.max_assistance,
+                el.name as location_name,
+                el.full_address as location_address,
+                el.latitude as location_latitude,
+                el.longitude as location_longitude,
+                ARRAY_AGG(t.name) FILTER (WHERE t.name IS NOT NULL) as tags
+            FROM events e
+            LEFT JOIN event_locations el ON e.id_event_location = el.id
+            LEFT JOIN event_tags et ON e.id = et.id_event
+            LEFT JOIN tags t ON et.id_tag = t.id
+            WHERE e.id_creator_user = $1
+            GROUP BY e.id, el.name, el.full_address, el.latitude, el.longitude
+            ORDER BY e.start_date DESC
+        `, [userId]);
+        
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error getting user created events:', error);
+        res.status(500).json({ error: 'Error al obtener eventos creados' });
+    }
+});
+
+// GET /api/users/me/events/joined - Obtener eventos a los que se unió el usuario
+router.get('/me/events/joined', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const result = await db.query(`
+            SELECT 
+                e.id,
+                e.name,
+                e.description,
+                e.start_date,
+                e.duration_in_minutes,
+                e.price,
+                e.enabled_for_enrollment,
+                e.max_assistance,
+                el.name as location_name,
+                el.full_address as location_address,
+                el.latitude as location_latitude,
+                el.longitude as location_longitude,
+                u.username as creator_username,
+                u.first_name as creator_first_name,
+                u.last_name as creator_last_name,
+                ARRAY_AGG(t.name) FILTER (WHERE t.name IS NOT NULL) as tags
+            FROM event_enrollments ee
+            JOIN events e ON ee.id_event = e.id
+            LEFT JOIN event_locations el ON e.id_event_location = el.id
+            LEFT JOIN users u ON e.id_creator_user = u.id
+            LEFT JOIN event_tags et ON e.id = et.id_event
+            LEFT JOIN tags t ON et.id_tag = t.id
+            WHERE ee.id_user = $1
+            GROUP BY e.id, el.name, el.full_address, el.latitude, el.longitude, u.username, u.first_name, u.last_name
+            ORDER BY e.start_date DESC
+        `, [userId]);
+        
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error getting user joined events:', error);
+        res.status(500).json({ error: 'Error al obtener eventos unidos' });
     }
 });
 

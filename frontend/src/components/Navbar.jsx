@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, LayoutDashboard, LogOut } from 'lucide-react';
+import { Calendar, Search, LayoutDashboard, LogOut, UserCheck } from 'lucide-react';
 
 export default function Navbar({ onLogout }) {
   const location = useLocation();
@@ -28,6 +28,13 @@ export default function Navbar({ onLogout }) {
               ${isActive('/explorar') ? 'bg-primary text-white' : 'text-primary hover:bg-primary/10'}`}
           >
             <Search className="w-4 h-4" /> Explorar eventos
+          </Link>
+          <Link
+            to="/dashboard"
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors duration-200
+              ${isActive('/dashboard') ? 'bg-primary text-white' : 'text-primary hover:bg-primary/10'}`}
+          >
+            <UserCheck className="w-4 h-4" /> Mis eventos
           </Link>
           <button
             className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium text-primary hover:bg-primary/10 transition-colors duration-200"

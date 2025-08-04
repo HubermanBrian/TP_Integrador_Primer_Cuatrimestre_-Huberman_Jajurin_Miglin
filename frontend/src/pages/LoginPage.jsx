@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, Calendar, ArrowLeft } from 'lucide-react'
+import apiService from '../services/api'
 
 const LoginPage = () => {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     username: '',
     password: ''
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleChange = (e) => {
     setFormData({
@@ -21,12 +24,23 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setError('')
     
-    // Simular llamada a la API
-    setTimeout(() => {
+    try {
+      const response = await apiService.login(formData)
+      
+      // Store the token
+      localStorage.setItem('token', response.token)
+      
+      // Redirect to dashboard
+      navigate('/dashboard')
+      
+    } catch (error) {
+      console.error('Login error:', error)
+      setError(error.message || 'Error al iniciar sesión. Por favor, verifica tus credenciales.')
+    } finally {
       setIsLoading(false)
-      console.log('Login attempt:', formData)
-    }, 2000)
+    }
   }
 
   return (
@@ -66,6 +80,16 @@ const LoginPage = () => {
           className="card p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="ml-3">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Email Field */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
