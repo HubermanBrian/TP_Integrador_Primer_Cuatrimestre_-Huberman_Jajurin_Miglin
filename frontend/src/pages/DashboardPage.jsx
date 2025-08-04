@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pencil, Trash2, Plus, Users, Globe, Calendar, MapPin, LogOut, UserCheck, UserPlus, XCircle } from 'lucide-react';
+import { Pencil, Trash2, Plus, Users, Globe, Calendar, MapPin, LogOut, UserCheck, UserPlus, XCircle, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import EventoModal from '../components/EventoModal';
 import apiService from '../services/api';
@@ -12,6 +12,9 @@ export default function DashboardPage() {
   const [editEvento, setEditEvento] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
   const [advertencia, setAdvertencia] = useState({ show: false, id: null, nombre: '' });
 
@@ -43,6 +46,31 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
+
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    try {
+      setSearching(true);
+      const results = await apiService.getEvents({ name: searchTerm });
+      setSearchResults(results);
+    } catch (err) {
+      console.error('Error searching events:', err);
+      setError(err.message || 'Error al buscar eventos');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const handleEliminar = (id) => {
     const evento = eventosCreados.find(ev => ev.id === id);
@@ -167,20 +195,101 @@ export default function DashboardPage() {
         </div>
       )}
       
-      <header className="flex justify-between items-center mb-10 max-w-5xl mx-auto">
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Bienvenido, Usuario 👋</h1>
-          <p className="text-gray-600 mt-2">Gestiona tus eventos y descubre nuevos</p>
+      <header className="mb-10 max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-primary">Bienvenido, Usuario 👋</h1>
+            <p className="text-gray-600 mt-2">Gestiona tus eventos y descubre nuevos</p>
+          </div>
+          <div className="flex gap-3">
+            <button className="btn-primary flex items-center gap-2" onClick={() => window.location.reload()}>
+              <UserCheck className="w-4 h-4" /> Actualizar mis eventos
+            </button>
+            <button className="btn-secondary flex items-center gap-2" onClick={handleLogout}>
+              <LogOut className="w-4 h-4" /> Cerrar sesión
+            </button>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button className="btn-primary flex items-center gap-2" onClick={() => window.location.reload()}>
-            <UserCheck className="w-4 h-4" /> Actualizar mis eventos
-          </button>
-          <button className="btn-secondary flex items-center gap-2" onClick={handleLogout}>
-            <LogOut className="w-4 h-4" /> Cerrar sesión
-          </button>
+        
+        {/* Barra de búsqueda */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-4">
+          <div className="flex gap-4 items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Buscar eventos por nombre..."
+              />
+            </div>
+            <button 
+              onClick={handleSearch}
+              disabled={searching}
+              className="btn-primary flex items-center gap-2 px-6 py-2"
+            >
+              {searching ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4" />
+                  Buscar
+                </>
+              )}
+            </button>
+            <button 
+              onClick={() => navigate('/explorar')}
+              className="btn-secondary flex items-center gap-2 px-4 py-2"
+            >
+              <Globe className="w-4 h-4" />
+              Explorar todos
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* Resultados de búsqueda */}
+      {searchResults.length > 0 && (
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-secondary flex items-center gap-2">
+                <Search className="w-5 h-5 text-primary" /> Resultados de búsqueda para "{searchTerm}"
+              </h2>
+              <button 
+                onClick={() => { setSearchResults([]); setSearchTerm(''); }}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                Limpiar búsqueda
+              </button>
+            </div>
+            <div className="space-y-4">
+              {searchResults.map(ev => (
+                <div key={ev.id} className="flex justify-between items-center bg-blue-50/60 rounded-xl p-4 border border-blue-100 cursor-pointer hover:bg-blue-100/60 transition gap-4" onClick={() => handleDetalle(ev.id)}>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-primary truncate">{ev.name}</h3>
+                    <div className="text-gray-500 flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4" /> {new Date(ev.start_date).toLocaleDateString()}
+                      <MapPin className="w-4 h-4 ml-4" /> {ev.location_name || ev.location?.name || 'Sin ubicación'}
+                    </div>
+                    <p className="text-gray-600 text-sm mt-1 truncate">{ev.description}</p>
+                  </div>
+                  <div className="flex flex-row gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                    <button className="btn-primary flex items-center gap-1 px-3 py-2 text-sm" onClick={() => handleUnirse(ev.id)}>
+                      <Users className="w-4 h-4" /> Unirse
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         {/* Mis eventos */}

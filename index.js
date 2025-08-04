@@ -4,23 +4,20 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./db');
 
-// Importar rutas
 const eventsRouter = require('./routes/events');
+const eventRouter = require('./routes/event');
 const userRouter = require('./routes/user');
 const authRouter = require('./routes/auth');
 const eventLocationRouter = require('./routes/event-location');
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Ruta de prueba para verificar que el backend funciona
 app.get('/api/health', async (req, res) => {
   try {
-    // Probar conexión a la base de datos
     const dbConnected = await db.testConnection();
     
     res.json({ 
@@ -39,14 +36,12 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Rutas de la API
-app.use('/api/event', eventsRouter); // Cambiado a /api/event según la consigna
-app.use('/api/events', eventsRouter); // Mantener compatibilidad
+app.use('/api/event', eventRouter);
+app.use('/api/events', eventsRouter);
 app.use('/api/users', userRouter);
-app.use('/api/auth', authRouter);
-app.use('/api/event-locations', eventLocationRouter);
+app.use('/api/user', authRouter);
+app.use('/api/event-location', eventLocationRouter);
 
-// Ruta de prueba para eventos
 app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'API de eventos funcionando',
@@ -74,10 +69,8 @@ app.get('/api/test', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Inicializar el servidor
 const startServer = async () => {
   try {
-    // Probar conexión a la base de datos antes de iniciar el servidor
     console.log('🔍 Probando conexión a la base de datos...');
     const dbConnected = await db.testConnection();
     

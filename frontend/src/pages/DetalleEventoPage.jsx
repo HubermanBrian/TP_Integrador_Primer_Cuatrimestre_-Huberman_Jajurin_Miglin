@@ -109,34 +109,64 @@ export default function DetalleEventoPage() {
               <span className="font-semibold">Fecha:</span> {new Date(evento.start_date).toLocaleDateString()}
             </div>
             <div>
-              <span className="font-semibold">Duración:</span> {evento.duration || 'Por definir'}
+              <span className="font-semibold">Duración:</span> {evento.duration_in_minutes ? `${evento.duration_in_minutes} minutos` : 'Por definir'}
             </div>
             <div>
               <span className="font-semibold">Precio:</span> <span className="text-primary font-bold">{evento.price === 0 ? 'Gratis' : `$${evento.price}`}</span>
             </div>
             <div>
-              <span className="font-semibold">Inscripción:</span> {evento.enrollment_enabled ? 'Habilitada' : 'No habilitada'}
+              <span className="font-semibold">Inscripción:</span> {evento.enabled_for_enrollment === '1' ? 'Habilitada' : 'No habilitada'}
             </div>
             <div>
-              <span className="font-semibold">Capacidad:</span> {evento.capacity}
+              <span className="font-semibold">Capacidad:</span> {evento.max_assistance}
             </div>
             <div>
-              <span className="font-semibold">Ubicación:</span> {evento.location_name}<br/>
-              <span className="text-xs text-gray-500">{evento.location_address}</span>
-            </div>
-            <div className="sm:col-span-2">
-              <span className="font-semibold">Organizador:</span> {evento.creator_first_name} {evento.creator_last_name} <span className="text-xs text-gray-500">({evento.creator_username})</span><br/>
-              <span className="text-xs text-gray-500">{evento.creator_email}</span>
+              <span className="font-semibold">Organizador:</span> {evento.creator_user?.first_name} {evento.creator_user?.last_name} <span className="text-xs text-gray-500">({evento.creator_user?.username})</span>
             </div>
           </div>
+          
+          {/* Información de ubicación */}
+          {evento.event_location && (
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <h3 className="font-semibold text-secondary mb-2 flex items-center gap-2">
+                <MapPin className="w-4 h-4" /> Ubicación del Evento
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="font-semibold">Lugar:</span> {evento.event_location.name}
+                </div>
+                <div>
+                  <span className="font-semibold">Capacidad:</span> {evento.event_location.max_capacity}
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="font-semibold">Dirección:</span> {evento.event_location.full_address}
+                </div>
+                {evento.event_location.location && (
+                  <>
+                    <div>
+                      <span className="font-semibold">Localidad:</span> {evento.event_location.location.name}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Provincia:</span> {evento.event_location.location.province?.name || 'No especificada'}
+                    </div>
+                  </>
+                )}
+                {evento.event_location.creator_user && (
+                  <div className="sm:col-span-2">
+                    <span className="font-semibold">Creador de ubicación:</span> {evento.event_location.creator_user.first_name} {evento.event_location.creator_user.last_name}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="mb-4">
             <span className="font-semibold">Descripción:</span>
             <p className="text-gray-600 text-base leading-relaxed mt-1">{evento.description}</p>
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
             {evento.tags && evento.tags.map(tag => (
-              <span key={tag} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-semibold">
-                <Tag className="w-3 h-3 inline mr-1" />{tag}
+              <span key={tag.id} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-semibold">
+                <Tag className="w-3 h-3 inline mr-1" />{tag.name}
               </span>
             ))}
           </div>

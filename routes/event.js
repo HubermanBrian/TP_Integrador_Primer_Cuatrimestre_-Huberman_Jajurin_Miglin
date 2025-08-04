@@ -3,7 +3,6 @@ const router = express.Router();
 const db = require('../db');
 const jwt = require('jsonwebtoken');
 
-// Middleware de autenticación
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -17,13 +16,11 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// GET /api/event/
 router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    // Filtros de búsqueda
     const { name, startdate, tag } = req.query;
     let whereClauses = [];
     let params = [];
@@ -38,7 +35,6 @@ router.get('/', async (req, res) => {
         params.push(startdate);
     }
     if (tag) {
-        // Buscar eventos que tengan el tag indicado (por nombre de tag)
         whereClauses.push(`id IN (
             SELECT e.id
             FROM events e
@@ -51,7 +47,6 @@ router.get('/', async (req, res) => {
 
     let whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    // Consulta principal con paginación
     const sql = `
         SELECT *
         FROM events
@@ -69,11 +64,9 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/event/:id
 router.get('/:id', async (req, res) => {
     const eventId = req.params.id;
     try {
-        // Obtener el evento y su ubicación
         const eventSql = `
             SELECT *
             FROM events
@@ -85,7 +78,6 @@ router.get('/:id', async (req, res) => {
         }
         const event = eventRows[0];
 
-        // Obtener event_location
         const eventLocationSql = `
             SELECT *
             FROM event_locations
@@ -94,7 +86,6 @@ router.get('/:id', async (req, res) => {
         const { rows: eventLocationRows } = await db.query(eventLocationSql, [event.id_event_location]);
         const eventLocation = eventLocationRows[0] || null;
 
-        // Obtener location (localidad)
         let location = null;
         let province = null;
         if (eventLocation && eventLocation.id_location) {
@@ -102,7 +93,6 @@ router.get('/:id', async (req, res) => {
             const { rows: locationRows } = await db.query(locationSql, [eventLocation.id_location]);
             location = locationRows[0] || null;
 
-            // Obtener provincia
             if (location && location.id_province) {
                 const provinceSql = `SELECT * FROM provinces WHERE id = $1`;
                 const { rows: provinceRows } = await db.query(provinceSql, [location.id_province]);
@@ -110,7 +100,6 @@ router.get('/:id', async (req, res) => {
             }
         }
 
-        // Obtener usuario creador
         const userSql = `SELECT * FROM users WHERE id = $1`;
         const { rows: userRows } = await db.query(userSql, [event.id_creator_user]);
         const creatorUser = userRows[0] || null;
@@ -131,8 +120,8 @@ router.get('/:id', async (req, res) => {
             eventLocationCreatorUser = elUserRows[0] || null;
         }
 
-        // Armar respuesta
-        res.json({
+        // Armar respuesta según especificación
+        const response = {
             id: event.id,
             name: event.nombre,
             description: event.descripcion,
@@ -143,18 +132,54 @@ router.get('/:id', async (req, res) => {
             enabled_for_enrollment: event.habilitado_inscripcion,
             max_assistance: event.capacidad,
             id_creator_user: event.id_creator_user,
-            event_location: eventLocation && {
-                ...eventLocation,
-                location: location && {
-                    ...location,
-                    province: province || undefined
-                },
-                creator_user: eventLocationCreatorUser || undefined
-            },
-            tags: tags,
-            creator_user: creatorUser || undefined
-        });
+            event_location: eventLocation ? {
+                id: eventLocation.id,
+                id_location: eventLocation.id_location,
+                name: eventLocation.nombre,
+                full_address: eventLocation.direccion_completa,
+                max_capacity: eventLocation.capacidad_maxima,
+                latitude: eventLocation.latitud,
+                longitude: eventLocation.longitud,
+                id_creator_user: eventLocation.id_creator_user,
+                location: location ? {
+                    id: location.id,
+                    name: location.nombre,
+                    id_province: location.id_province,
+                    latitude: location.latitud,
+                    longitude: location.longitud,
+                    province: province ? {
+                        id: province.id,
+                        name: province.nombre,
+                        full_name: province.nombre_completo,
+                        latitude: province.latitud,
+                        longitude: province.longitud,
+                        display_order: province.orden_visualizacion
+                    } : null
+                } : null,
+                creator_user: eventLocationCreatorUser ? {
+                    id: eventLocationCreatorUser.id,
+                    first_name: eventLocationCreatorUser.nombre,
+                    last_name: eventLocationCreatorUser.apellido,
+                    username: eventLocationCreatorUser.username,
+                    password: "******"
+                } : null
+            } : null,
+            tags: tags.map(tag => ({
+                id: tag.id,
+                name: tag.name
+            })),
+            creator_user: creatorUser ? {
+                id: creatorUser.id,
+                first_name: creatorUser.nombre,
+                last_name: creatorUser.apellido,
+                username: creatorUser.username,
+                password: "******"
+            } : null
+        };
+
+        res.json(response);
     } catch (err) {
+        console.error('Error getting event details:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -173,11 +198,11 @@ router.post('/', authenticateToken, async (req, res) => {
         tags // array de ids de tags opcional
     } = req.body;
 
-    // Validaciones
-    if (!name || name.length < 3) {
+    // Validaciones según especificación
+    if (!name || name.trim().length < 3) {
         return res.status(400).json({ message: "El campo name es obligatorio y debe tener al menos 3 letras." });
     }
-    if (!description || description.length < 3) {
+    if (!description || description.trim().length < 3) {
         return res.status(400).json({ message: "El campo description es obligatorio y debe tener al menos 3 letras." });
     }
     if (typeof price !== 'number' || price < 0) {
@@ -193,8 +218,8 @@ router.post('/', authenticateToken, async (req, res) => {
         return res.status(400).json({ message: "El campo max_assistance debe ser un número mayor o igual a cero." });
     }
 
-    // Validar max_assistance <= max_capacity del event_location
     try {
+        // Validar max_assistance <= max_capacity del event_location
         const locRes = await db.query('SELECT max_capacity FROM event_locations WHERE id = $1', [id_event_location]);
         if (locRes.rows.length === 0) {
             return res.status(400).json({ message: "El id_event_location no existe." });
@@ -207,13 +232,13 @@ router.post('/', authenticateToken, async (req, res) => {
         // Insertar evento
         const insertSql = `
             INSERT INTO events
-            (name, description, id_event_location, start_date, duration_in_minutes, price, habilitado_inscripcion, capacidad, id_creator_user)
+            (nombre, descripcion, id_event_location, fecha_evento, duracion, precio_entrada, habilitado_inscripcion, capacidad, id_creator_user)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `;
         const { rows } = await db.query(insertSql, [
-            name,
-            description,
+            name.trim(),
+            description.trim(),
             id_event_location,
             start_date,
             duration_in_minutes,
@@ -236,6 +261,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
         res.status(201).json(event);
     } catch (err) {
+        console.error('Error creating event:', err);
         res.status(500).json({ message: "Database error" });
     }
 });
@@ -255,14 +281,14 @@ router.put('/', authenticateToken, async (req, res) => {
         tags // array de ids de tags opcional
     } = req.body;
 
-    // Validaciones
+    // Validaciones según especificación
     if (!id) {
         return res.status(400).json({ message: "El campo id es obligatorio." });
     }
-    if (!name || name.length < 3) {
+    if (!name || name.trim().length < 3) {
         return res.status(400).json({ message: "El campo name es obligatorio y debe tener al menos 3 letras." });
     }
-    if (!description || description.length < 3) {
+    if (!description || description.trim().length < 3) {
         return res.status(400).json({ message: "El campo description es obligatorio y debe tener al menos 3 letras." });
     }
     if (typeof price !== 'number' || price < 0) {
@@ -302,14 +328,14 @@ router.put('/', authenticateToken, async (req, res) => {
         // Actualizar evento
         const updateSql = `
             UPDATE events
-            SET name = $1, description = $2, id_event_location = $3, start_date = $4,
-                duration_in_minutes = $5, price = $6, habilitado_inscripcion = $7, capacidad = $8
+            SET nombre = $1, descripcion = $2, id_event_location = $3, fecha_evento = $4,
+                duracion = $5, precio_entrada = $6, habilitado_inscripcion = $7, capacidad = $8
             WHERE id = $9
             RETURNING *
         `;
         const { rows } = await db.query(updateSql, [
-            name,
-            description,
+            name.trim(),
+            description.trim(),
             id_event_location,
             start_date,
             duration_in_minutes,
@@ -333,6 +359,7 @@ router.put('/', authenticateToken, async (req, res) => {
 
         res.status(200).json(updatedEvent);
     } catch (err) {
+        console.error('Error updating event:', err);
         res.status(500).json({ message: "Database error" });
     }
 });
@@ -389,7 +416,7 @@ router.post('/:id/enrollment', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: "El usuario ya se encuentra registrado en el evento." });
         }
 
-        // 3. Verificar capacidad máxima
+        // 3. Verificar capacidad máxima (max_assistance)
         const countRes = await db.query(
             'SELECT COUNT(*)::int AS count FROM event_enrollments WHERE id_event = $1',
             [eventId]
@@ -399,7 +426,7 @@ router.post('/:id/enrollment', authenticateToken, async (req, res) => {
         }
 
         // 4. Verificar fecha del evento (no puede ser hoy ni pasada)
-        const eventDate = new Date(event.fecha_evento || event.start_date);
+        const eventDate = new Date(event.fecha_evento);
         const now = new Date();
         // Comparar solo fechas (sin hora)
         const eventDateStr = eventDate.toISOString().slice(0, 10);
@@ -408,12 +435,12 @@ router.post('/:id/enrollment', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: "No puede registrarse a un evento que ya sucedió o es hoy." });
         }
 
-        // 5. Verificar habilitado para inscripción
-        if (!event.habilitado_inscripcion && !event.enabled_for_enrollment) {
+        // 5. Verificar habilitado para inscripción (enabled_for_enrollment)
+        if (!event.habilitado_inscripcion) {
             return res.status(400).json({ message: "El evento no está habilitado para la inscripción." });
         }
 
-        // 6. Registrar inscripción
+        // 6. Registrar inscripción con fecha y hora actual
         await db.query(
             `INSERT INTO event_enrollments (id_event, id_user, registration_date_time)
              VALUES ($1, $2, NOW())`,
@@ -422,6 +449,7 @@ router.post('/:id/enrollment', authenticateToken, async (req, res) => {
 
         res.status(201).json({ message: "Inscripción exitosa." });
     } catch (err) {
+        console.error('Error en inscripción:', err);
         res.status(500).json({ message: "Database error" });
     }
 });
@@ -449,7 +477,7 @@ router.delete('/:id/enrollment', authenticateToken, async (req, res) => {
         }
 
         // 3. Verificar fecha del evento (no puede ser hoy ni pasada)
-        const eventDate = new Date(event.fecha_evento || event.start_date);
+        const eventDate = new Date(event.fecha_evento);
         const now = new Date();
         const eventDateStr = eventDate.toISOString().slice(0, 10);
         const todayStr = now.toISOString().slice(0, 10);
@@ -464,6 +492,86 @@ router.delete('/:id/enrollment', authenticateToken, async (req, res) => {
         );
 
         res.status(200).json({ message: "El usuario fue removido de la inscripción al evento." });
+    } catch (err) {
+        console.error('Error al remover inscripción:', err);
+        res.status(500).json({ message: "Database error" });
+    }
+});
+
+// GET /api/event/tags - obtener todos los tags
+router.get('/tags', async (req, res) => {
+    try {
+        const { rows: tags } = await db.query('SELECT * FROM tags ORDER BY name');
+        res.json(tags);
+    } catch (err) {
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// POST /api/event/:id/join - unirse a un evento
+router.post('/:id/join', authenticateToken, async (req, res) => {
+    const eventId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Verificar si el usuario ya está inscripto
+        const alreadyEnrolled = await db.query(
+            'SELECT 1 FROM event_enrollments WHERE id_event = $1 AND id_user = $2',
+            [eventId, userId]
+        );
+        if (alreadyEnrolled.rows.length > 0) {
+            return res.status(400).json({ message: "Ya estás inscripto en este evento." });
+        }
+
+        // Verificar capacidad del evento
+        const eventRes = await db.query('SELECT capacidad FROM events WHERE id = $1', [eventId]);
+        if (eventRes.rows.length === 0) {
+            return res.status(404).json({ message: "Evento no encontrado." });
+        }
+
+        const currentEnrollments = await db.query(
+            'SELECT COUNT(*)::int AS count FROM event_enrollments WHERE id_event = $1',
+            [eventId]
+        );
+
+        if (currentEnrollments.rows[0].count >= eventRes.rows[0].capacidad) {
+            return res.status(400).json({ message: "El evento está completo." });
+        }
+
+        // Inscribir al usuario
+        await db.query(
+            'INSERT INTO event_enrollments (id_event, id_user, registration_date_time) VALUES ($1, $2, NOW())',
+            [eventId, userId]
+        );
+
+        res.status(201).json({ message: "Te has unido al evento exitosamente." });
+    } catch (err) {
+        res.status(500).json({ message: "Database error" });
+    }
+});
+
+// DELETE /api/event/:id/leave - salir de un evento
+router.delete('/:id/leave', authenticateToken, async (req, res) => {
+    const eventId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Verificar si el usuario está inscripto
+        const enrollmentRes = await db.query(
+            'SELECT 1 FROM event_enrollments WHERE id_event = $1 AND id_user = $2',
+            [eventId, userId]
+        );
+        if (enrollmentRes.rows.length === 0) {
+            return res.status(400).json({ message: "No estás inscripto en este evento." });
+        }
+
+        // Remover inscripción
+        await db.query(
+            'DELETE FROM event_enrollments WHERE id_event = $1 AND id_user = $2',
+            [eventId, userId]
+        );
+
+        res.status(200).json({ message: "Has salido del evento exitosamente." });
     } catch (err) {
         res.status(500).json({ message: "Database error" });
     }
