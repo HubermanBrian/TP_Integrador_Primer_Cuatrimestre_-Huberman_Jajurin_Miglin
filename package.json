@@ -14,25 +14,29 @@
     "preview": "cd frontend && npm run preview",
     "lint": "cd frontend && npm run lint",
     "install-all": "npm install && cd frontend && npm install",
-    "setup-db": "node setup-database.js",
+    "test-supabase": "node -e \"require('./db-supabase').testConnection()\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.53.0",
     "bcrypt": "^5.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.0",
-    "mysql2": "^3.9.7",
-    "pg": "^8.11.5"
+    "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
-  "keywords": ["react", "eventos", "autenticacion", "express", "node"],
+  "keywords": [
+    "react",
+    "eventos",
+    "autenticacion",
+    "express",
+    "node",
+    "supabase"
+  ],
   "workspaces": [
     "frontend"
   ]
 }
-
-

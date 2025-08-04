@@ -2,12 +2,12 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const db = require('./db');
+const db = require('./db-supabase');
 
 const eventsRouter = require('./routes/events');
 const eventRouter = require('./routes/event');
 const userRouter = require('./routes/user');
-const authRouter = require('./routes/auth');
+const authRouter = require('./routes/auth-supabase');
 const eventLocationRouter = require('./routes/event-location');
 
 const app = express();

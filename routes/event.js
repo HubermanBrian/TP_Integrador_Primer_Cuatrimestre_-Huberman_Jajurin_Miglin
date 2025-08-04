@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const db = require('../db-supabase');
 const jwt = require('jsonwebtoken');
 
 function authenticateToken(req, res, next) {
@@ -16,163 +16,192 @@ function authenticateToken(req, res, next) {
     });
 }
 
+// GET /api/event - Listar eventos con filtros
 router.get('/', async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-
-    const { name, startdate, tag } = req.query;
-    let whereClauses = [];
-    let params = [];
-    let paramIdx = 1;
-
-    if (name) {
-        whereClauses.push(`LOWER(nombre) LIKE $${paramIdx++}`);
-        params.push(`%${name.toLowerCase()}%`);
-    }
-    if (startdate) {
-        whereClauses.push(`fecha_evento::date = $${paramIdx++}`);
-        params.push(startdate);
-    }
-    if (tag) {
-        whereClauses.push(`id IN (
-            SELECT e.id
-            FROM events e
-            JOIN event_tags et ON et.id_event = e.id
-            JOIN tags t ON t.id = et.id_tag
-            WHERE LOWER(t.name) = $${paramIdx++}
-        )`);
-        params.push(tag.toLowerCase());
-    }
-
-    let whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-    const sql = `
-        SELECT *
-        FROM events
-        ${whereSQL}
-        ORDER BY fecha_evento DESC
-        LIMIT $${paramIdx++} OFFSET $${paramIdx++}
-    `;
-    params.push(limit, offset);
-
     try {
-        const { rows: events } = await db.query(sql, params);
-        res.json(events);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+        const { name, startdate, tag } = req.query;
+
+        // Construir filtros para Supabase
+        let query = db.supabase
+            .from('events')
+            .select(`
+                *,
+                event_categories(name),
+                event_locations(
+                    *,
+                    locations(
+                        *,
+                        provinces(*)
+                    )
+                ),
+                users!events_id_creator_user_fkey(
+                    id,
+                    first_name,
+                    last_name,
+                    username
+                )
+            `);
+
+        // Aplicar filtros
+        if (name) {
+            query = query.ilike('name', `%${name}%`);
+        }
+        if (startdate) {
+            query = query.eq('start_date::date', startdate);
+        }
+
+        // Aplicar límite y offset
+        query = query.range(offset, offset + limit - 1);
+        query = query.order('start_date', { ascending: false });
+
+        const { data: events, error } = await query;
+
+        if (error) throw error;
+
+        // Filtrar por tag si se especifica
+        let filteredEvents = events;
+        if (tag) {
+            // Para filtrar por tag necesitamos hacer una consulta adicional
+            const { data: tagEvents, error: tagError } = await db.supabase
+                .from('event_tags')
+                .select('id_event')
+                .eq('tags.name', tag)
+                .eq('tags.name', tag);
+
+            if (!tagError && tagEvents) {
+                const eventIds = tagEvents.map(te => te.id_event);
+                filteredEvents = events.filter(event => eventIds.includes(event.id));
+            }
+        }
+
+        // Transformar la respuesta
+        const transformedEvents = filteredEvents.map(event => ({
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            start_date: event.start_date,
+            duration_in_minutes: event.duration_in_minutes,
+            price: event.price,
+            enabled_for_enrollment: event.enabled_for_enrollment,
+            max_assistance: event.max_assistance,
+            creator: event.users ? {
+                id: event.users.id,
+                username: event.users.username,
+                first_name: event.users.first_name,
+                last_name: event.users.last_name
+            } : null,
+            location: event.event_locations ? {
+                name: event.event_locations.name,
+                address: event.event_locations.full_address,
+                latitude: event.event_locations.latitude,
+                longitude: event.event_locations.longitude
+            } : null,
+            category: event.event_categories ? event.event_categories.name : null
+        }));
+
+        res.json(transformedEvents);
     } catch (err) {
+        console.error('Error getting events:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
 
+// GET /api/event/:id - Obtener evento específico
 router.get('/:id', async (req, res) => {
     const eventId = req.params.id;
     try {
-        const eventSql = `
-            SELECT *
-            FROM events
-            WHERE id = $1
-        `;
-        const { rows: eventRows } = await db.query(eventSql, [eventId]);
-        if (eventRows.length === 0) {
+        // Obtener evento con todas sus relaciones
+        const { data: event, error } = await db.supabase
+            .from('events')
+            .select(`
+                *,
+                event_categories(name),
+                event_locations(
+                    *,
+                    locations(
+                        *,
+                        provinces(*)
+                    ),
+                    users!event_locations_id_creator_user_fkey(
+                        id,
+                        first_name,
+                        last_name,
+                        username
+                    )
+                ),
+                users!events_id_creator_user_fkey(
+                    id,
+                    first_name,
+                    last_name,
+                    username
+                ),
+                event_tags(
+                    tags(*)
+                )
+            `)
+            .eq('id', eventId)
+            .single();
+
+        if (error || !event) {
             return res.status(404).json({ error: 'Evento no encontrado' });
         }
-        const event = eventRows[0];
 
-        const eventLocationSql = `
-            SELECT *
-            FROM event_locations
-            WHERE id = $1
-        `;
-        const { rows: eventLocationRows } = await db.query(eventLocationSql, [event.id_event_location]);
-        const eventLocation = eventLocationRows[0] || null;
-
-        let location = null;
-        let province = null;
-        if (eventLocation && eventLocation.id_location) {
-            const locationSql = `SELECT * FROM locations WHERE id = $1`;
-            const { rows: locationRows } = await db.query(locationSql, [eventLocation.id_location]);
-            location = locationRows[0] || null;
-
-            if (location && location.id_province) {
-                const provinceSql = `SELECT * FROM provinces WHERE id = $1`;
-                const { rows: provinceRows } = await db.query(provinceSql, [location.id_province]);
-                province = provinceRows[0] || null;
-            }
-        }
-
-        const userSql = `SELECT * FROM users WHERE id = $1`;
-        const { rows: userRows } = await db.query(userSql, [event.id_creator_user]);
-        const creatorUser = userRows[0] || null;
-
-        // Obtener tags
-        const tagsSql = `
-            SELECT t.id, t.name
-            FROM tags t
-            JOIN event_tags et ON et.id_tag = t.id
-            WHERE et.id_event = $1
-        `;
-        const { rows: tags } = await db.query(tagsSql, [eventId]);
-
-        // Obtener usuario creador de la ubicación del evento
-        let eventLocationCreatorUser = null;
-        if (eventLocation && eventLocation.id_creator_user) {
-            const { rows: elUserRows } = await db.query(userSql, [eventLocation.id_creator_user]);
-            eventLocationCreatorUser = elUserRows[0] || null;
-        }
-
-        // Armar respuesta según especificación
+        // Transformar la respuesta
         const response = {
             id: event.id,
-            name: event.nombre,
-            description: event.descripcion,
+            name: event.name,
+            description: event.description,
             id_event_location: event.id_event_location,
-            start_date: event.fecha_evento,
-            duration_in_minutes: event.duracion,
-            price: event.precio_entrada,
-            enabled_for_enrollment: event.habilitado_inscripcion,
-            max_assistance: event.capacidad,
+            start_date: event.start_date,
+            duration_in_minutes: event.duration_in_minutes,
+            price: event.price,
+            enabled_for_enrollment: event.enabled_for_enrollment,
+            max_assistance: event.max_assistance,
             id_creator_user: event.id_creator_user,
-            event_location: eventLocation ? {
-                id: eventLocation.id,
-                id_location: eventLocation.id_location,
-                name: eventLocation.nombre,
-                full_address: eventLocation.direccion_completa,
-                max_capacity: eventLocation.capacidad_maxima,
-                latitude: eventLocation.latitud,
-                longitude: eventLocation.longitud,
-                id_creator_user: eventLocation.id_creator_user,
-                location: location ? {
-                    id: location.id,
-                    name: location.nombre,
-                    id_province: location.id_province,
-                    latitude: location.latitud,
-                    longitude: location.longitud,
-                    province: province ? {
-                        id: province.id,
-                        name: province.nombre,
-                        full_name: province.nombre_completo,
-                        latitude: province.latitud,
-                        longitude: province.longitud,
-                        display_order: province.orden_visualizacion
+            event_location: event.event_locations ? {
+                id: event.event_locations.id,
+                id_location: event.event_locations.id_location,
+                name: event.event_locations.name,
+                full_address: event.event_locations.full_address,
+                max_capacity: event.event_locations.max_capacity,
+                latitude: event.event_locations.latitude,
+                longitude: event.event_locations.longitude,
+                id_creator_user: event.event_locations.id_creator_user,
+                location: event.event_locations.locations ? {
+                    id: event.event_locations.locations.id,
+                    name: event.event_locations.locations.name,
+                    id_province: event.event_locations.locations.id_province,
+                    latitude: event.event_locations.locations.latitude,
+                    longitude: event.event_locations.locations.longitude,
+                    province: event.event_locations.locations.provinces ? {
+                        id: event.event_locations.locations.provinces.id,
+                        name: event.event_locations.locations.provinces.name,
+                        full_name: event.event_locations.locations.provinces.full_name,
+                        latitude: event.event_locations.locations.provinces.latitude,
+                        longitude: event.event_locations.locations.provinces.longitude,
+                        display_order: event.event_locations.locations.provinces.display_order
                     } : null
                 } : null,
-                creator_user: eventLocationCreatorUser ? {
-                    id: eventLocationCreatorUser.id,
-                    first_name: eventLocationCreatorUser.nombre,
-                    last_name: eventLocationCreatorUser.apellido,
-                    username: eventLocationCreatorUser.username,
+                creator_user: event.event_locations.users ? {
+                    id: event.event_locations.users.id,
+                    first_name: event.event_locations.users.first_name,
+                    last_name: event.event_locations.users.last_name,
+                    username: event.event_locations.users.username,
                     password: "******"
                 } : null
             } : null,
-            tags: tags.map(tag => ({
-                id: tag.id,
-                name: tag.name
-            })),
-            creator_user: creatorUser ? {
-                id: creatorUser.id,
-                first_name: creatorUser.nombre,
-                last_name: creatorUser.apellido,
-                username: creatorUser.username,
+            tags: event.event_tags ? event.event_tags.map(et => ({
+                id: et.tags.id,
+                name: et.tags.name
+            })) : [],
+            creator_user: event.users ? {
+                id: event.users.id,
+                first_name: event.users.first_name,
+                last_name: event.users.last_name,
+                username: event.users.username,
                 password: "******"
             } : null
         };
@@ -184,85 +213,81 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/event/ (crear evento)
+// POST /api/event/ - Crear evento
 router.post('/', authenticateToken, async (req, res) => {
-    const {
-        name,
-        description,
-        id_event_location,
-        start_date,
-        duration_in_minutes,
-        price,
-        enabled_for_enrollment,
-        max_assistance,
-        tags // array de ids de tags opcional
-    } = req.body;
-
-    // Validaciones según especificación
-    if (!name || name.trim().length < 3) {
-        return res.status(400).json({ message: "El campo name es obligatorio y debe tener al menos 3 letras." });
-    }
-    if (!description || description.trim().length < 3) {
-        return res.status(400).json({ message: "El campo description es obligatorio y debe tener al menos 3 letras." });
-    }
-    if (typeof price !== 'number' || price < 0) {
-        return res.status(400).json({ message: "El campo price debe ser un número mayor o igual a cero." });
-    }
-    if (typeof duration_in_minutes !== 'number' || duration_in_minutes < 0) {
-        return res.status(400).json({ message: "El campo duration_in_minutes debe ser un número mayor o igual a cero." });
-    }
-    if (!id_event_location) {
-        return res.status(400).json({ message: "El campo id_event_location es obligatorio." });
-    }
-    if (typeof max_assistance !== 'number' || max_assistance < 0) {
-        return res.status(400).json({ message: "El campo max_assistance debe ser un número mayor o igual a cero." });
-    }
-
     try {
-        // Validar max_assistance <= max_capacity del event_location
-        const locRes = await db.query('SELECT max_capacity FROM event_locations WHERE id = $1', [id_event_location]);
-        if (locRes.rows.length === 0) {
-            return res.status(400).json({ message: "El id_event_location no existe." });
-        }
-        const max_capacity = parseInt(locRes.rows[0].max_capacity, 10);
-        if (max_assistance > max_capacity) {
-            return res.status(400).json({ message: "El max_assistance no puede ser mayor que el max_capacity del event_location." });
-        }
-
-        // Insertar evento
-        const insertSql = `
-            INSERT INTO events
-            (nombre, descripcion, id_event_location, fecha_evento, duracion, precio_entrada, habilitado_inscripcion, capacidad, id_creator_user)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            RETURNING *
-        `;
-        const { rows } = await db.query(insertSql, [
-            name.trim(),
-            description.trim(),
+        const {
+            name,
+            description,
+            id_event_category,
             id_event_location,
             start_date,
             duration_in_minutes,
             price,
             enabled_for_enrollment,
             max_assistance,
-            req.user.id
-        ]);
-        const event = rows[0];
+            tags // array de ids de tags opcional
+        } = req.body;
 
-        // Insertar tags si vienen
-        if (Array.isArray(tags) && tags.length > 0) {
-            for (const tagId of tags) {
-                await db.query(
-                    'INSERT INTO event_tags (id_event, id_tag) VALUES ($1, $2)',
-                    [event.id, tagId]
-                );
+        // Validaciones básicas
+        if (!name || !description || !id_event_category || !id_event_location || !start_date) {
+            return res.status(400).json({ error: 'Faltan campos obligatorios' });
+        }
+
+        // Verificar que la ubicación del evento existe y tiene capacidad
+        const { data: locationData, error: locationError } = await db.supabase
+            .from('event_locations')
+            .select('max_capacity')
+            .eq('id', id_event_location)
+            .single();
+
+        if (locationError || !locationData) {
+            return res.status(400).json({ error: 'Ubicación del evento no válida' });
+        }
+
+        // Crear el evento
+        const eventData = {
+            name,
+            description,
+            id_event_category,
+            id_event_location,
+            start_date,
+            duration_in_minutes: duration_in_minutes || 0,
+            price: price || 0,
+            enabled_for_enrollment: enabled_for_enrollment !== undefined ? enabled_for_enrollment : true,
+            max_assistance: max_assistance || locationData.max_capacity,
+            id_creator_user: req.user.id
+        };
+
+        const { data: newEvent, error: eventError } = await db.supabase
+            .from('events')
+            .insert(eventData)
+            .select()
+            .single();
+
+        if (eventError) throw eventError;
+
+        // Agregar tags si se proporcionan
+        if (tags && Array.isArray(tags) && tags.length > 0) {
+            const tagData = tags.map(tagId => ({
+                id_event: newEvent.id,
+                id_tag: tagId
+            }));
+
+            const { error: tagError } = await db.supabase
+                .from('event_tags')
+                .insert(tagData);
+
+            if (tagError) {
+                console.error('Error adding tags:', tagError);
+                // No fallamos la creación del evento si fallan los tags
             }
         }
 
-        res.status(201).json(event);
+        res.status(201).json(newEvent);
     } catch (err) {
         console.error('Error creating event:', err);
-        res.status(500).json({ message: "Database error" });
+        res.status(500).json({ error: 'Error al crear evento' });
     }
 });
 

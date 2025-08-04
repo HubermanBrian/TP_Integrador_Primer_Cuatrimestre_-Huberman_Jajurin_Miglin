@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const db = require('../db-supabase');
 const jwt = require('jsonwebtoken');
 
 function authenticateToken(req, res, next) {

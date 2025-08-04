@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-const jwt = require('jsonwebtoken');
+const { supabase, insert, select } = require('../db-supabase');
 const bcrypt = require('bcrypt');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_key';
 
 // Función para validar email
 function isValidEmail(email) {
@@ -51,7 +48,7 @@ router.post('/register', async (req, res) => {
 
     try {
         // Verificar si el usuario ya existe
-        const existingUser = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+        const existingUser = await select('users', 'id', { username });
         if (existingUser.rows.length > 0) {
             return res.status(400).json({ 
                 success: false, 
@@ -63,13 +60,26 @@ router.post('/register', async (req, res) => {
         // Hash de la contraseña
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insertar nuevo usuario
-        const { rows } = await db.query(
-            'INSERT INTO users (first_name, last_name, username, password) VALUES ($1, $2, $3, $4) RETURNING id, first_name, last_name, username',
-            [first_name.trim(), last_name.trim(), username, hashedPassword]
-        );
+        // Insertar nuevo usuario usando Supabase
+        const { data: newUser, error } = await supabase
+            .from('users')
+            .insert({
+                first_name: first_name.trim(),
+                last_name: last_name.trim(),
+                username,
+                password: hashedPassword
+            })
+            .select('id, first_name, last_name, username')
+            .single();
 
-        const newUser = rows[0];
+        if (error) {
+            console.error('Error al insertar usuario:', error);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error interno del servidor",
+                token: ""
+            });
+        }
 
         res.status(201).json({
             success: true,
@@ -115,10 +125,23 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        // Buscar usuario por username
-        const { rows } = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-        
-        if (rows.length === 0) {
+        // Buscar usuario por username usando Supabase
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .limit(1);
+
+        if (error) {
+            console.error('Error al buscar usuario:', error);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error interno del servidor",
+                token: ""
+            });
+        }
+
+        if (users.length === 0) {
             return res.status(401).json({ 
                 success: false, 
                 message: "Usuario o clave inválida.",
@@ -126,7 +149,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const user = rows[0];
+        const user = users[0];
 
         // Verificar contraseña
         const validPassword = await bcrypt.compare(password, user.password);
@@ -138,7 +161,10 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Generar token JWT
+        // Generar token JWT (mantenemos compatibilidad con el código existente)
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_key';
+        
         const token = jwt.sign(
             { 
                 id: user.id, 
@@ -166,4 +192,48 @@ router.post('/login', async (req, res) => {
     }
 });
 
-module.exports = router;
+// GET /api/user/profile - Obtener perfil del usuario
+router.get('/profile', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({ 
+                success: false, 
+                message: "Token requerido"
+            });
+        }
+
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_key';
+        
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('id, first_name, last_name, username, created_at')
+            .eq('id', decoded.id)
+            .single();
+
+        if (error || !user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Usuario no encontrado"
+            });
+        }
+
+        res.json({
+            success: true,
+            user
+        });
+
+    } catch (err) {
+        console.error('Error al obtener perfil:', err);
+        res.status(401).json({ 
+            success: false, 
+            message: "Token inválido"
+        });
+    }
+});
+
+module.exports = router; 

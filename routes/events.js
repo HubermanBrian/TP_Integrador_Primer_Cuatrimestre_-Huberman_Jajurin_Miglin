@@ -1,60 +1,109 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const db = require('../db-supabase');
 
-// Listar eventos futuros con información completa usando stored procedure
+// Listar eventos futuros con información completa
 router.get('/', async (req, res) => {
   try {
     const { limit = 50, offset = 0, category_id, location_id, search, name, startdate, tag } = req.query;
     const now = new Date();
     
-    // Use the stored procedure to get events with complete information
-    const result = await db.query(
-      `SELECT * FROM get_events_with_details($1, $2, $3, $4, $5, $6, $7, $8) WHERE start_date > $9 ORDER BY start_date ASC`,
-      [limit, offset, category_id || null, location_id || null, search || null, name || null, startdate || null, tag || null, now]
-    );
+    // Construir filtros
+    const filters = {};
+    if (category_id) filters.category = category_id;
+    if (location_id) filters.location = location_id;
+    if (name) filters.name = name;
     
-    // Transform the data to match the required structure with nested objects
-    const events = result.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      start_date: row.start_date,
-      duration_in_minutes: row.duration_in_minutes,
-      price: row.price,
-      enabled_for_enrollment: row.enabled_for_enrollment === '1',
-      max_assistance: row.max_assistance,
-      creator: {
-        id: row.creator_id,
-        username: row.creator_username,
-        first_name: row.creator_first_name,
-        last_name: row.creator_last_name,
-        email: row.creator_email
-      },
-      location: {
-        name: row.location_name,
-        address: row.location_address,
-        latitude: row.location_latitude,
-        longitude: row.location_longitude
-      },
-      tags: row.tags || []
+    // Obtener eventos usando la nueva función
+    const result = await db.getEvents(filters);
+    
+    // Filtrar eventos futuros y aplicar búsqueda
+    let events = result.rows.filter(event => new Date(event.start_date) > now);
+    
+    // Aplicar búsqueda por texto si se proporciona
+    if (search) {
+      events = events.filter(event => 
+        event.name.toLowerCase().includes(search.toLowerCase()) ||
+        event.description.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    
+    // Aplicar límite y offset
+    events = events.slice(offset, offset + parseInt(limit));
+    
+    // Transformar la estructura de datos
+    const transformedEvents = events.map(event => ({
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      start_date: event.start_date,
+      duration_in_minutes: event.duration_in_minutes,
+      price: event.price,
+      enabled_for_enrollment: event.enabled_for_enrollment,
+      max_assistance: event.max_assistance,
+      creator: event.users ? {
+        id: event.users.id,
+        username: event.users.username,
+        first_name: event.users.first_name,
+        last_name: event.users.last_name
+      } : null,
+      location: event.event_locations ? {
+        name: event.event_locations.name,
+        address: event.event_locations.full_address,
+        latitude: event.event_locations.latitude,
+        longitude: event.event_locations.longitude
+      } : null,
+      category: event.event_categories ? event.event_categories.name : null
     }));
     
-    res.json(events);
+    res.json(transformedEvents);
   } catch (error) {
     console.error('Error getting events:', error);
     res.status(500).json({ error: 'Error al obtener eventos' });
   }
 });
 
-// Detalle de evento con información completa usando stored procedure
+// Detalle de evento con información completa
 router.get('/:id', async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT * FROM get_event_by_id($1)`, [req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Evento no encontrado' });
-    res.json(result.rows[0]);
+    const result = await db.getEventById(req.params.id);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    
+    const event = result.rows[0];
+    
+    // Transformar la estructura de datos
+    const transformedEvent = {
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      start_date: event.start_date,
+      duration_in_minutes: event.duration_in_minutes,
+      price: event.price,
+      enabled_for_enrollment: event.enabled_for_enrollment,
+      max_assistance: event.max_assistance,
+      creator: event.users ? {
+        id: event.users.id,
+        username: event.users.username,
+        first_name: event.users.first_name,
+        last_name: event.users.last_name
+      } : null,
+      location: event.event_locations ? {
+        name: event.event_locations.name,
+        address: event.event_locations.full_address,
+        latitude: event.event_locations.latitude,
+        longitude: event.event_locations.longitude,
+        location: event.event_locations.locations ? {
+          name: event.event_locations.locations.name,
+          province: event.event_locations.locations.provinces ? event.event_locations.locations.provinces.name : null
+        } : null
+      } : null,
+      category: event.event_categories ? event.event_categories.name : null,
+      tags: event.event_tags ? event.event_tags.map(et => et.tags ? et.tags.name : null).filter(tag => tag) : []
+    };
+    
+    res.json(transformedEvent);
   } catch (error) {
     console.error('Error getting event details:', error);
     res.status(500).json({ error: 'Error al obtener detalles del evento' });
@@ -63,45 +112,108 @@ router.get('/:id', async (req, res) => {
 
 // Crear evento
 router.post('/', async (req, res) => {
-  const { name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user } = req.body;
-  const result = await db.query(
-    `INSERT INTO events (name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-    [name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user]
-  );
-  res.status(201).json(result.rows[0]);
+  try {
+    const { name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user } = req.body;
+    
+    const result = await db.insert('events', {
+      name,
+      description,
+      id_event_category,
+      id_event_location,
+      start_date,
+      duration_in_minutes,
+      price,
+      enabled_for_enrollment,
+      max_assistance,
+      id_creator_user
+    });
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating event:', error);
+    res.status(500).json({ error: 'Error al crear evento' });
+  }
 });
 
 // Modificar evento
 router.put('/:id', async (req, res) => {
-  const { name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user } = req.body;
-  const result = await db.query(
-    `UPDATE events SET name=$1, description=$2, id_event_category=$3, id_event_location=$4, start_date=$5, duration_in_minutes=$6, price=$7, enabled_for_enrollment=$8, max_assistance=$9, id_creator_user=$10 WHERE id=$11 RETURNING *`,
-    [name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user, req.params.id]
-  );
-  if (result.rows.length === 0) return res.status(404).json({ error: 'Evento no encontrado' });
-  res.json(result.rows[0]);
+  try {
+    const { name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user } = req.body;
+    
+    const result = await db.update('events', {
+      name,
+      description,
+      id_event_category,
+      id_event_location,
+      start_date,
+      duration_in_minutes,
+      price,
+      enabled_for_enrollment,
+      max_assistance,
+      id_creator_user
+    }, { id: req.params.id });
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating event:', error);
+    res.status(500).json({ error: 'Error al actualizar evento' });
+  }
 });
 
 // Inscribirse a un evento
 router.post('/:id/enroll', async (req, res) => {
-  const { id_user, description } = req.body;
-  const result = await db.query(
-    `INSERT INTO event_enrollments (id_event, id_user, description, registration_date_time) VALUES ($1, $2, $3, NOW()) RETURNING *`,
-    [req.params.id, id_user, description]
-  );
-  res.status(201).json(result.rows[0]);
+  try {
+    const { id_user, description } = req.body;
+    
+    const result = await db.insert('event_enrollments', {
+      id_event: req.params.id,
+      id_user,
+      description,
+      registration_date_time: new Date().toISOString()
+    });
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error enrolling in event:', error);
+    res.status(500).json({ error: 'Error al inscribirse al evento' });
+  }
 });
 
 // Listar inscriptos a un evento
 router.get('/:id/enrollments', async (req, res) => {
-  const result = await db.query(
-    `SELECT u.id, u.first_name, u.last_name, u.username, e.registration_date_time
-     FROM event_enrollments e
-     JOIN users u ON e.id_user = u.id
-     WHERE e.id_event = $1`, [req.params.id]
-  );
-  res.json(result.rows);
+  try {
+    const { data, error } = await db.supabase
+      .from('event_enrollments')
+      .select(`
+        *,
+        users(
+          id,
+          first_name,
+          last_name,
+          username
+        )
+      `)
+      .eq('id_event', req.params.id);
+    
+    if (error) throw error;
+    
+    const enrollments = data.map(enrollment => ({
+      id: enrollment.users.id,
+      first_name: enrollment.users.first_name,
+      last_name: enrollment.users.last_name,
+      username: enrollment.users.username,
+      registration_date_time: enrollment.registration_date_time
+    }));
+    
+    res.json(enrollments);
+  } catch (error) {
+    console.error('Error getting enrollments:', error);
+    res.status(500).json({ error: 'Error al obtener inscriptos' });
+  }
 });
 
 module.exports = router;

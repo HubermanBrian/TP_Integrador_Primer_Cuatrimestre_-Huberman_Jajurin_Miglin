@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const db = require('../db-supabase');
 const jwt = require('jsonwebtoken');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -18,18 +18,21 @@ router.post('/login', async (req, res) => {
     }
     try {
         // Buscar usuario por username
-        const sql = `
-            SELECT * FROM users WHERE username = $1
-        `;
-        const { rows } = await db.query(sql, [username]);
-        if (rows.length === 0 || rows[0].password !== password) {
+        const { data, error } = await db.supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .single();
+        
+        if (error || !data || data.password !== password) {
             return res.status(401).json({
                 success: false,
                 message: "Usuario o clave inválida.",
                 token: ""
             });
         }
-        const user = rows[0];
+        
+        const user = data;
         // Generar token JWT
         const token = jwt.sign(
             {
@@ -56,31 +59,26 @@ router.get('/me/events/created', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        const result = await db.query(`
-            SELECT 
-                e.id,
-                e.name,
-                e.description,
-                e.start_date,
-                e.duration_in_minutes,
-                e.price,
-                e.enabled_for_enrollment,
-                e.max_assistance,
-                el.name as location_name,
-                el.full_address as location_address,
-                el.latitude as location_latitude,
-                el.longitude as location_longitude,
-                ARRAY_AGG(t.name) FILTER (WHERE t.name IS NOT NULL) as tags
-            FROM events e
-            LEFT JOIN event_locations el ON e.id_event_location = el.id
-            LEFT JOIN event_tags et ON e.id = et.id_event
-            LEFT JOIN tags t ON et.id_tag = t.id
-            WHERE e.id_creator_user = $1
-            GROUP BY e.id, el.name, el.full_address, el.latitude, el.longitude
-            ORDER BY e.start_date DESC
-        `, [userId]);
+        const result = await db.getUserCreatedEvents(userId);
         
-        res.json(result.rows);
+        // Transformar la estructura de datos
+        const transformedEvents = result.rows.map(event => ({
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            start_date: event.start_date,
+            duration_in_minutes: event.duration_in_minutes,
+            price: event.price,
+            enabled_for_enrollment: event.enabled_for_enrollment,
+            max_assistance: event.max_assistance,
+            location_name: event.event_locations ? event.event_locations.name : null,
+            location_address: event.event_locations ? event.event_locations.full_address : null,
+            location_latitude: event.event_locations ? event.event_locations.latitude : null,
+            location_longitude: event.event_locations ? event.event_locations.longitude : null,
+            tags: [] // Los tags se pueden agregar después si es necesario
+        }));
+        
+        res.json(transformedEvents);
     } catch (error) {
         console.error('Error getting user created events:', error);
         res.status(500).json({ error: 'Error al obtener eventos creados' });
@@ -92,36 +90,32 @@ router.get('/me/events/joined', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        const result = await db.query(`
-            SELECT 
-                e.id,
-                e.name,
-                e.description,
-                e.start_date,
-                e.duration_in_minutes,
-                e.price,
-                e.enabled_for_enrollment,
-                e.max_assistance,
-                el.name as location_name,
-                el.full_address as location_address,
-                el.latitude as location_latitude,
-                el.longitude as location_longitude,
-                u.username as creator_username,
-                u.first_name as creator_first_name,
-                u.last_name as creator_last_name,
-                ARRAY_AGG(t.name) FILTER (WHERE t.name IS NOT NULL) as tags
-            FROM event_enrollments ee
-            JOIN events e ON ee.id_event = e.id
-            LEFT JOIN event_locations el ON e.id_event_location = el.id
-            LEFT JOIN users u ON e.id_creator_user = u.id
-            LEFT JOIN event_tags et ON e.id = et.id_event
-            LEFT JOIN tags t ON et.id_tag = t.id
-            WHERE ee.id_user = $1
-            GROUP BY e.id, el.name, el.full_address, el.latitude, el.longitude, u.username, u.first_name, u.last_name
-            ORDER BY e.start_date DESC
-        `, [userId]);
+        const result = await db.getUserJoinedEvents(userId);
         
-        res.json(result.rows);
+        // Transformar la estructura de datos
+        const transformedEvents = result.rows.map(enrollment => {
+            const event = enrollment.events;
+            return {
+                id: event.id,
+                name: event.name,
+                description: event.description,
+                start_date: event.start_date,
+                duration_in_minutes: event.duration_in_minutes,
+                price: event.price,
+                enabled_for_enrollment: event.enabled_for_enrollment,
+                max_assistance: event.max_assistance,
+                location_name: event.event_locations ? event.event_locations.name : null,
+                location_address: event.event_locations ? event.event_locations.full_address : null,
+                location_latitude: event.event_locations ? event.event_locations.latitude : null,
+                location_longitude: event.event_locations ? event.event_locations.longitude : null,
+                creator_username: event.users ? event.users.username : null,
+                creator_first_name: event.users ? event.users.first_name : null,
+                creator_last_name: event.users ? event.users.last_name : null,
+                tags: [] // Los tags se pueden agregar después si es necesario
+            };
+        });
+        
+        res.json(transformedEvents);
     } catch (error) {
         console.error('Error getting user joined events:', error);
         res.status(500).json({ error: 'Error al obtener eventos unidos' });
@@ -149,18 +143,25 @@ router.post('/register', async (req, res) => {
 
     try {
         // Verificar si el usuario ya existe
-        const exists = await db.query('SELECT id FROM users WHERE username = $1', [username]);
-        if (exists.rows.length > 0) {
+        const { data: existingUser, error: checkError } = await db.supabase
+            .from('users')
+            .select('id')
+            .eq('username', username)
+            .single();
+        
+        if (existingUser) {
             return res.status(400).json({ message: "El usuario ya existe." });
         }
+        
         // Insertar usuario
-        const insertSql = `
-            INSERT INTO users (first_name, last_name, username, password)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, first_name, last_name, username
-        `;
-        const { rows } = await db.query(insertSql, [first_name, last_name, username, password]);
-        res.status(201).json(rows[0]);
+        const result = await db.insert('users', {
+            first_name,
+            last_name,
+            username,
+            password
+        });
+        
+        res.status(201).json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ message: "Database error" });
     }
