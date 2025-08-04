@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { supabase, insert, select } = require('../db-supabase');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 // Función para validar email
 function isValidEmail(email) {
