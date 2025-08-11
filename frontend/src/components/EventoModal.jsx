@@ -229,14 +229,14 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
             <div>
               <label className="block text-sm font-medium mb-1">Imagen</label>
               <div className="relative">
-                <input
-                  type="text"
-                  name="image_url"
-                  value={form.Img_url}
-                  onChange={handleChange}
-                  className={`input-field pl-10 ${errors.Img_url ? 'border-red-500' : ''}`}
-                  placeholder="URL de imagen (opcional)"
-                />
+                              <input
+                type="text"
+                name="image_url"
+                value={form.Img_url}
+                onChange={handleChange}
+                className={`input-field pl-10 ${errors.Img_url ? 'border-red-500' : ''}`}
+                placeholder="URL de imagen (opcional)"
+              />
                 <Image className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
               </div>
               {errors.Img_url && <p className="text-xs text-red-500 mt-1">{errors.Img_url}</p>}

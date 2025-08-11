@@ -196,7 +196,10 @@ export default function DetalleEventoPage() {
                 <div className="flex items-center gap-3">
                   <User className="w-8 h-8 text-primary" />
                   <div>
-                    <div className="font-semibold text-secondary">{p.first_name} {p.last_name} <span className="text-xs text-gray-400">({p.username})</span></div>
+                    <div className="font-semibold text-secondary">
+                      {p.user ? `${p.user.first_name} ${p.user.last_name}` : `${p.first_name || ''} ${p.last_name || ''}`} 
+                      <span className="text-xs text-gray-400">({p.user ? p.user.username : p.username})</span>
+                    </div>
                     <div className="text-xs text-gray-500">
                       {p.attended ? 'Asistió' : 'No asistió'}
                     </div>

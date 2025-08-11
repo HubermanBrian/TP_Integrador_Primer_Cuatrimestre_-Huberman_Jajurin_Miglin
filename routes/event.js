@@ -385,24 +385,54 @@ router.put('/', authenticateToken, async (req, res) => {
 router.delete('/:id', authenticateToken, async (req, res) => {
     const eventId = req.params.id;
     try {
-        const eventRes = await db.query('SELECT * FROM events WHERE id = $1', [eventId]);
-        if (eventRes.rows.length === 0) {
+        // Verificar que el evento existe y pertenece al usuario autenticado
+        const { data: event, error: eventError } = await db.supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+        
+        if (eventError || !event) {
             return res.status(404).json({ message: "El evento no existe." });
         }
-        const event = eventRes.rows[0];
+        
         if (event.id_creator_user !== req.user.id) {
-            return res.status(404).json({ message: "El evento no pertenece al usuario autenticado." });
+            return res.status(403).json({ message: "El evento no pertenece al usuario autenticado." });
         }
 
-        const enrollRes = await db.query('SELECT 1 FROM event_enrollments WHERE id_event = $1 LIMIT 1', [eventId]);
-        if (enrollRes.rows.length > 0) {
+        // Verificar si hay usuarios inscritos
+        const { data: enrollments, error: enrollError } = await db.supabase
+            .from('event_enrollments')
+            .select('id')
+            .eq('id_event', eventId);
+        
+        if (enrollError) throw enrollError;
+        
+        if (enrollments && enrollments.length > 0) {
             return res.status(400).json({ message: "No se puede eliminar el evento porque existen usuarios inscriptos." });
         }
 
-        await db.query('DELETE FROM event_tags WHERE id_event = $1', [eventId]);
-        const { rows: deletedRows } = await db.query('DELETE FROM events WHERE id = $1 RETURNING *', [eventId]);
-        res.status(200).json(deletedRows[0]);
+        // Eliminar tags del evento
+        const { error: tagError } = await db.supabase
+            .from('event_tags')
+            .delete()
+            .eq('id_event', eventId);
+        
+        if (tagError) throw tagError;
+
+        // Eliminar el evento
+        const { data: deletedEvent, error: deleteError } = await db.supabase
+            .from('events')
+            .delete()
+            .eq('id', eventId)
+            .select()
+            .single();
+        
+        if (deleteError) throw deleteError;
+        
+        res.status(200).json(deletedEvent);
     } catch (err) {
+        console.error('Error deleting event:', err);
         res.status(500).json({ message: "Database error" });
     }
 });
