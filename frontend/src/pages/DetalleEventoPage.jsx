@@ -94,7 +94,7 @@ export default function DetalleEventoPage() {
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="relative">
           <img 
-            src={evento.image_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=350&fit=crop'} 
+            src={evento.Img_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=350&fit=crop'} 
             alt={evento.name} 
             className="w-full h-56 object-cover" 
           />

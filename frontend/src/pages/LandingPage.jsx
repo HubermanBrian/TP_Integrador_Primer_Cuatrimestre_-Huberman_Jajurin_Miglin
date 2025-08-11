@@ -207,7 +207,7 @@ const LandingPage = () => {
                   >
                     <div className="relative h-48 overflow-hidden">
                       <img 
-                        src={event.image_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop'} 
+                        src={event.Img_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop'} 
                         alt={event.name}
                         className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
                       />

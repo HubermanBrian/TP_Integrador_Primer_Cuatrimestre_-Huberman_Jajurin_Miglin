@@ -9,7 +9,7 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
     id_event_location: '',
     price: '',
     tags: [],
-    image_url: '',
+    Img_url: '',
     description: '',
     id_event_category: '',
     duration_in_minutes: '',
@@ -68,7 +68,7 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
         id_event_location: initialData.id_event_location || '',
         price: initialData.price?.toString() ?? '',
         tags: Array.isArray(initialData.tags) ? initialData.tags : [],
-        image_url: initialData.image_url || '',
+        Img_url: initialData.Img_url || '',
         description: initialData.description || '',
         id_event_category: initialData.id_event_category || '',
         duration_in_minutes: initialData.duration_in_minutes?.toString() || '',
@@ -82,7 +82,7 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
         id_event_location: '',
         price: '',
         tags: [],
-        image_url: '',
+        Img_url: '',
         description: '',
         id_event_category: '',
         duration_in_minutes: '',
@@ -232,14 +232,14 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
                 <input
                   type="text"
                   name="image_url"
-                  value={form.image_url}
+                  value={form.Img_url}
                   onChange={handleChange}
-                  className={`input-field pl-10 ${errors.image_url ? 'border-red-500' : ''}`}
+                  className={`input-field pl-10 ${errors.Img_url ? 'border-red-500' : ''}`}
                   placeholder="URL de imagen (opcional)"
                 />
                 <Image className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
               </div>
-              {errors.image_url && <p className="text-xs text-red-500 mt-1">{errors.image_url}</p>}
+              {errors.Img_url && <p className="text-xs text-red-500 mt-1">{errors.Img_url}</p>}
             </div>
           </div>
           <div>

@@ -163,7 +163,7 @@ router.get('/:id', async (req, res) => {
             id: event.id,
             name: event.name,
             description: event.description,
-            image_url: event.image_url || null,
+            Img_url: event.Img_url || null,
             id_event_location: event.id_event_location,
             start_date: event.start_date,
             duration_in_minutes: event.duration_in_minutes,
@@ -261,7 +261,7 @@ router.post('/', authenticateToken, async (req, res) => {
         const eventData = {
             name,
             description,
-            image_url: req.body.image_url || null,
+            Img_url: req.body.Img_url || null,
             category_id: id_event_category,
             location_id: id_event_location,
             start_date,

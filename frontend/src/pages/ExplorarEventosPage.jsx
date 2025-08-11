@@ -182,7 +182,7 @@ export default function ExplorarEventosPage() {
           >
             <div className="h-32 w-full overflow-hidden">
               <img 
-                src={(ev.image_url && ev.image_url.trim()) ? ev.image_url : `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=220&fit=crop&${ev.id}`} 
+                src={(ev.Img_url && ev.Img_url.trim()) ? ev.Img_url : `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=220&fit=crop&${ev.id}`} 
                 alt={ev.name} 
                 className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" 
               />
