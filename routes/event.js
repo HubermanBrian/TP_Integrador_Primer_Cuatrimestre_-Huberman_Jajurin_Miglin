@@ -130,35 +130,10 @@ router.get('/tags', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const eventId = req.params.id;
     try {
-        // Obtener evento con todas sus relaciones
+        // Obtener evento básico primero
         const { data: event, error } = await db.supabase
             .from('events')
-            .select(`
-                *,
-                event_categories(name),
-                event_locations(
-                    *,
-                    locations(
-                        *,
-                        provinces(*)
-                    ),
-                    users!event_locations_id_creator_user_fkey(
-                        id,
-                        first_name,
-                        last_name,
-                        username
-                    )
-                ),
-                users!events_id_creator_user_fkey(
-                    id,
-                    first_name,
-                    last_name,
-                    username
-                ),
-                event_tags(
-                    tags(*)
-                )
-            `)
+            .select('*')
             .eq('id', eventId)
             .single();
 
@@ -606,6 +581,46 @@ router.delete('/:id/leave', authenticateToken, async (req, res) => {
         res.status(200).json({ message: "Has salido del evento exitosamente." });
     } catch (err) {
         res.status(500).json({ message: "Database error" });
+    }
+});
+
+// GET /api/event/:id/participants - obtener participantes de un evento
+router.get('/:id/participants', async (req, res) => {
+    const eventId = req.params.id;
+    try {
+        const { data: participants, error } = await db.supabase
+            .from('event_enrollments')
+            .select(`
+                id_user,
+                registration_date_time,
+                users!event_enrollments_id_user_fkey(
+                    id,
+                    first_name,
+                    last_name,
+                    username
+                )
+            `)
+            .eq('id_event', eventId)
+            .order('registration_date_time', { ascending: true });
+
+        if (error) throw error;
+
+        // Transformar la respuesta
+        const transformedParticipants = participants.map(p => ({
+            id: p.id_user,
+            registration_date: p.registration_date_time,
+            user: p.users ? {
+                id: p.users.id,
+                first_name: p.users.first_name,
+                last_name: p.users.last_name,
+                username: p.users.username
+            } : null
+        }));
+
+        res.json(transformedParticipants);
+    } catch (err) {
+        console.error('Error getting event participants:', err);
+        res.status(500).json({ error: 'Database error' });
     }
 });
 
