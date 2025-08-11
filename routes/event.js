@@ -327,51 +327,80 @@ router.put('/', authenticateToken, async (req, res) => {
     }
 
     try {
-        const eventRes = await db.query('SELECT * FROM events WHERE id = $1', [id]);
-        if (eventRes.rows.length === 0) {
+        // Verificar que el evento existe y pertenece al usuario
+        const { data: event, error: eventError } = await db.supabase
+            .from('events')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (eventError || !event) {
             return res.status(404).json({ message: "El evento no existe." });
         }
-        const event = eventRes.rows[0];
-        if (event.id_creator_user !== req.user.id) {
-            return res.status(404).json({ message: "El evento no pertenece al usuario autenticado." });
+        
+        if (event.creator_id !== req.user.id) {
+            return res.status(403).json({ message: "El evento no pertenece al usuario autenticado." });
         }
 
-        const locRes = await db.query('SELECT max_capacity FROM event_locations WHERE id = $1', [id_event_location]);
-        if (locRes.rows.length === 0) {
+        // Verificar que la ubicación existe y obtener su capacidad máxima
+        const { data: location, error: locationError } = await db.supabase
+            .from('event_locations')
+            .select('max_capacity')
+            .eq('id', id_event_location)
+            .single();
+        
+        if (locationError || !location) {
             return res.status(400).json({ message: "El id_event_location no existe." });
         }
-        const max_capacity = parseInt(locRes.rows[0].max_capacity, 10);
-        if (max_assistance > max_capacity) {
+        
+        if (max_assistance > location.max_capacity) {
             return res.status(400).json({ message: "El max_assistance no puede ser mayor que el max_capacity del event_location." });
         }
 
-        const updateSql = `
-            UPDATE events
-            SET nombre = $1, descripcion = $2, id_event_location = $3, fecha_evento = $4,
-                duracion = $5, precio_entrada = $6, habilitado_inscripcion = $7, capacidad = $8
-            WHERE id = $9
-            RETURNING *
-        `;
-        const { rows } = await db.query(updateSql, [
-            name.trim(),
-            description.trim(),
-            id_event_location,
+        // Actualizar el evento
+        const updateData = {
+            name: name.trim(),
+            description: description.trim(),
+            location_id: id_event_location,
             start_date,
             duration_in_minutes,
             price,
             enabled_for_enrollment,
             max_assistance,
-            id
-        ]);
-        const updatedEvent = rows[0];
+            Img_url: req.body.Img_url || null
+        };
 
+        const { data: updatedEvent, error: updateError } = await db.supabase
+            .from('events')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (updateError) throw updateError;
+
+        // Actualizar tags si se proporcionan
         if (Array.isArray(tags)) {
-            await db.query('DELETE FROM event_tags WHERE id_event = $1', [id]);
-            for (const tagId of tags) {
-                await db.query(
-                    'INSERT INTO event_tags (id_event, id_tag) VALUES ($1, $2)',
-                    [id, tagId]
-                );
+            // Eliminar tags existentes
+            const { error: deleteTagsError } = await db.supabase
+                .from('event_tags')
+                .delete()
+                .eq('id_event', id);
+            
+            if (deleteTagsError) throw deleteTagsError;
+
+            // Insertar nuevos tags
+            if (tags.length > 0) {
+                const tagData = tags.map(tagId => ({
+                    id_event: id,
+                    id_tag: tagId
+                }));
+
+                const { error: insertTagsError } = await db.supabase
+                    .from('event_tags')
+                    .insert(tagData);
+                
+                if (insertTagsError) throw insertTagsError;
             }
         }
 
@@ -385,7 +414,7 @@ router.put('/', authenticateToken, async (req, res) => {
 router.delete('/:id', authenticateToken, async (req, res) => {
     const eventId = req.params.id;
     try {
-        // Verificar que el evento existe y pertenece al usuario autenticado
+        // Verificar que el evento existe
         const { data: event, error: eventError } = await db.supabase
             .from('events')
             .select('*')
@@ -396,20 +425,24 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: "El evento no existe." });
         }
         
-        if (event.id_creator_user !== req.user.id) {
-            return res.status(403).json({ message: "El evento no pertenece al usuario autenticado." });
+        // Verificar propiedad del evento usando el campo creator_id
+        const eventCreatorId = Number(event.creator_id);
+        const userId = Number(req.user.id);
+        
+        if (eventCreatorId !== userId) {
+            return res.status(403).json({ 
+                message: "El evento no pertenece al usuario autenticado."
+            });
         }
 
-        // Verificar si hay usuarios inscritos
-        const { data: enrollments, error: enrollError } = await db.supabase
+        // Eliminar automáticamente todos los usuarios inscritos
+        const { error: enrollmentsDeleteError } = await db.supabase
             .from('event_enrollments')
-            .select('id')
+            .delete()
             .eq('id_event', eventId);
         
-        if (enrollError) throw enrollError;
-        
-        if (enrollments && enrollments.length > 0) {
-            return res.status(400).json({ message: "No se puede eliminar el evento porque existen usuarios inscriptos." });
+        if (enrollmentsDeleteError) {
+            return res.status(500).json({ message: "Error al eliminar las inscripciones del evento." });
         }
 
         // Eliminar tags del evento
