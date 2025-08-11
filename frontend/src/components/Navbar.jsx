@@ -12,7 +12,7 @@ export default function Navbar({ onLogout }) {
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <Calendar className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-secondary">EventosApp</span>
+          <span className="text-xl font-bold text-secondary">EvenTroca</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link

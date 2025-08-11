@@ -13,13 +13,23 @@ router.get('/', async (req, res) => {
     if (category_id) filters.category = category_id;
     if (location_id) filters.location = location_id;
     if (name) filters.name = name;
+    if (search && !filters.name) filters.name = search;
     
     // Obtener eventos usando la nueva función
     const result = await db.getEvents(filters);
     
     // Filtrar eventos futuros y aplicar búsqueda
     let events = result.rows.filter(event => new Date(event.start_date) > now);
-    
+
+    // Filtrar por fecha exacta (solo parte de fecha)
+    if (startdate) {
+      events = events.filter(event => {
+        const d = new Date(event.start_date);
+        const dateOnly = d.toISOString().slice(0, 10);
+        return dateOnly === startdate;
+      });
+    }
+
     // Aplicar búsqueda por texto si se proporciona
     if (search) {
       events = events.filter(event => 
@@ -36,6 +46,7 @@ router.get('/', async (req, res) => {
       id: event.id,
       name: event.name,
       description: event.description,
+        image_url: event.image_url || null,
       start_date: event.start_date,
       duration_in_minutes: event.duration_in_minutes,
       price: event.price,
@@ -78,6 +89,7 @@ router.get('/:id', async (req, res) => {
       id: event.id,
       name: event.name,
       description: event.description,
+        image_url: event.image_url || null,
       start_date: event.start_date,
       duration_in_minutes: event.duration_in_minutes,
       price: event.price,

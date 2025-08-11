@@ -4,17 +4,24 @@ import apiService from '../services/api';
 
 export default function EventoModal({ open, onClose, onSave, initialData }) {
   const [form, setForm] = useState({
-    nombre: '',
-    fecha: '',
-    lugar: '',
-    precio: '',
+    name: '',
+    start_date: '',
+    id_event_location: '',
+    price: '',
     tags: [],
-    imagen: '',
-    descripcion: ''
+    image_url: '',
+    description: '',
+    id_event_category: '',
+    duration_in_minutes: '',
+    max_assistance: '',
+    enabled_for_enrollment: true
   });
   const [errors, setErrors] = useState({});
   const [availableTags, setAvailableTags] = useState([]);
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [availableLocations, setAvailableLocations] = useState([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [loadingMeta, setLoadingMeta] = useState(false);
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -24,23 +31,64 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
         setAvailableTags(tags);
       } catch (err) {
         console.error('Error fetching tags:', err);
-        // Fallback to empty array if API fails
         setAvailableTags([]);
       } finally {
         setLoadingTags(false);
       }
     };
+    const fetchMeta = async () => {
+      try {
+        setLoadingMeta(true);
+        const [cats, locs] = await Promise.all([
+          apiService.getEventCategories().catch(() => []),
+          apiService.getLocations().catch(() => [])
+        ]);
+        setAvailableCategories(Array.isArray(cats) ? cats : []);
+        setAvailableLocations(Array.isArray(locs) ? locs : []);
+      } catch (err) {
+        console.error('Error fetching meta:', err);
+        setAvailableCategories([]);
+        setAvailableLocations([]);
+      } finally {
+        setLoadingMeta(false);
+      }
+    };
 
     if (open) {
       fetchTags();
+      fetchMeta();
     }
   }, [open]);
 
   useEffect(() => {
     if (initialData) {
-      setForm({ ...initialData, precio: initialData.precio?.toString() ?? '' });
+      setForm({
+        name: initialData.name || '',
+        start_date: initialData.start_date ? initialData.start_date.slice(0, 10) : '',
+        id_event_location: initialData.id_event_location || '',
+        price: initialData.price?.toString() ?? '',
+        tags: Array.isArray(initialData.tags) ? initialData.tags : [],
+        image_url: initialData.image_url || '',
+        description: initialData.description || '',
+        id_event_category: initialData.id_event_category || '',
+        duration_in_minutes: initialData.duration_in_minutes?.toString() || '',
+        max_assistance: initialData.max_assistance?.toString() || '',
+        enabled_for_enrollment: typeof initialData.enabled_for_enrollment === 'boolean' ? initialData.enabled_for_enrollment : true
+      });
     } else {
-      setForm({ nombre: '', fecha: '', lugar: '', precio: '', tags: [], imagen: '', descripcion: '' });
+      setForm({
+        name: '',
+        start_date: '',
+        id_event_location: '',
+        price: '',
+        tags: [],
+        image_url: '',
+        description: '',
+        id_event_category: '',
+        duration_in_minutes: '',
+        max_assistance: '',
+        enabled_for_enrollment: true
+      });
     }
     setErrors({});
   }, [open, initialData]);
@@ -49,13 +97,14 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
 
   const validate = () => {
     const newErrors = {};
-    if (!form.nombre || form.nombre.length < 3) newErrors.nombre = 'El nombre debe tener al menos 3 letras';
-    if (!form.fecha) newErrors.fecha = 'La fecha es obligatoria';
-    if (!form.lugar || form.lugar.length < 3) newErrors.lugar = 'El lugar debe tener al menos 3 letras';
-    if (form.precio === '' || isNaN(Number(form.precio)) || Number(form.precio) < 0) newErrors.precio = 'Precio inválido';
-    if (form.tags.length === 0) newErrors.tags = 'Selecciona al menos un tag';
-    if (!form.imagen || !form.imagen.startsWith('http')) newErrors.imagen = 'URL de imagen inválida';
-    if (!form.descripcion || form.descripcion.length < 10) newErrors.descripcion = 'La descripción debe tener al menos 10 letras';
+    if (!form.name || form.name.length < 3) newErrors.name = 'El nombre debe tener al menos 3 letras';
+    if (!form.start_date) newErrors.start_date = 'La fecha es obligatoria';
+    if (!form.id_event_location) newErrors.id_event_location = 'La ubicación es obligatoria';
+    if (!form.id_event_category) newErrors.id_event_category = 'La categoría es obligatoria';
+    if (form.price === '' || isNaN(Number(form.price)) || Number(form.price) < 0) newErrors.price = 'Precio inválido';
+    if (!form.description || form.description.length < 10) newErrors.description = 'La descripción debe tener al menos 10 letras';
+    if (form.duration_in_minutes && (isNaN(Number(form.duration_in_minutes)) || Number(form.duration_in_minutes) < 0)) newErrors.duration_in_minutes = 'Duración inválida';
+    if (form.max_assistance && (isNaN(Number(form.max_assistance)) || Number(form.max_assistance) <= 0)) newErrors.max_assistance = 'Cupos inválidos';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -65,19 +114,27 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
     setForm({ ...form, [name]: value });
   };
 
-  const handleTagToggle = (tag) => {
+  const handleTagToggle = (tagId) => {
     setForm((prev) => ({
       ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter(t => t !== tag)
-        : [...prev.tags, tag]
+      tags: prev.tags.includes(tagId)
+        ? prev.tags.filter(id => id !== tagId)
+        : [...prev.tags, tagId]
     }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validate()) return;
-    onSave({ ...form, precio: Number(form.precio) });
+    onSave({
+      ...form,
+      price: Number(form.price),
+      id_event_location: Number(form.id_event_location),
+      id_event_category: Number(form.id_event_category),
+      duration_in_minutes: form.duration_in_minutes ? Number(form.duration_in_minutes) : 0,
+      max_assistance: form.max_assistance ? Number(form.max_assistance) : undefined,
+      tags: form.tags
+    });
   };
 
   return (
@@ -93,15 +150,15 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
             <div className="relative">
               <input
                 type="text"
-                name="nombre"
-                value={form.nombre}
+                name="name"
+                value={form.name}
                 onChange={handleChange}
-                className={`input-field pl-10 ${errors.nombre ? 'border-red-500' : ''}`}
+                className={`input-field pl-10 ${errors.name ? 'border-red-500' : ''}`}
                 placeholder="Nombre del evento"
               />
               <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
             </div>
-            {errors.nombre && <p className="text-xs text-red-500 mt-1">{errors.nombre}</p>}
+            {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -109,30 +166,48 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
               <div className="relative">
                 <input
                   type="date"
-                  name="fecha"
-                  value={form.fecha}
+                  name="start_date"
+                  value={form.start_date}
                   onChange={handleChange}
-                  className={`input-field pl-10 ${errors.fecha ? 'border-red-500' : ''}`}
+                  className={`input-field pl-10 ${errors.start_date ? 'border-red-500' : ''}`}
                 />
                 <Calendar className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
               </div>
-              {errors.fecha && <p className="text-xs text-red-500 mt-1">{errors.fecha}</p>}
+              {errors.start_date && <p className="text-xs text-red-500 mt-1">{errors.start_date}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Lugar</label>
+              <label className="block text-sm font-medium mb-1">Ubicación</label>
               <div className="relative">
-                <input
-                  type="text"
-                  name="lugar"
-                  value={form.lugar}
-                  onChange={handleChange}
-                  className={`input-field pl-10 ${errors.lugar ? 'border-red-500' : ''}`}
-                  placeholder="Lugar del evento"
-                />
                 <MapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                <select
+                  name="id_event_location"
+                  value={form.id_event_location}
+                  onChange={handleChange}
+                  className={`input-field pl-10 ${errors.id_event_location ? 'border-red-500' : ''}`}
+                >
+                  <option value="">Selecciona una ubicación</option>
+                  {availableLocations.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
               </div>
-              {errors.lugar && <p className="text-xs text-red-500 mt-1">{errors.lugar}</p>}
+              {errors.id_event_location && <p className="text-xs text-red-500 mt-1">{errors.id_event_location}</p>}
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Categoría</label>
+            <select
+              name="id_event_category"
+              value={form.id_event_category}
+              onChange={handleChange}
+              className={`input-field ${errors.id_event_category ? 'border-red-500' : ''}`}
+            >
+              <option value="">Selecciona una categoría</option>
+              {availableCategories.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {errors.id_event_category && <p className="text-xs text-red-500 mt-1">{errors.id_event_category}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -140,31 +215,31 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
               <div className="relative">
                 <input
                   type="number"
-                  name="precio"
-                  value={form.precio}
+                  name="price"
+                  value={form.price}
                   onChange={handleChange}
-                  className={`input-field pl-10 ${errors.precio ? 'border-red-500' : ''}`}
+                  className={`input-field pl-10 ${errors.price ? 'border-red-500' : ''}`}
                   min="0"
-                  placeholder="Precio"
+                  placeholder="Ingresa el precio"
                 />
                 <DollarSign className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
               </div>
-              {errors.precio && <p className="text-xs text-red-500 mt-1">{errors.precio}</p>}
+              {errors.price && <p className="text-xs text-red-500 mt-1">{errors.price}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Imagen (URL)</label>
+              <label className="block text-sm font-medium mb-1">Imagen</label>
               <div className="relative">
                 <input
                   type="text"
-                  name="imagen"
-                  value={form.imagen}
+                  name="image_url"
+                  value={form.image_url}
                   onChange={handleChange}
-                  className={`input-field pl-10 ${errors.imagen ? 'border-red-500' : ''}`}
-                  placeholder="https://..."
+                  className={`input-field pl-10 ${errors.image_url ? 'border-red-500' : ''}`}
+                  placeholder="URL de imagen (opcional)"
                 />
                 <Image className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
               </div>
-              {errors.imagen && <p className="text-xs text-red-500 mt-1">{errors.imagen}</p>}
+              {errors.image_url && <p className="text-xs text-red-500 mt-1">{errors.image_url}</p>}
             </div>
           </div>
           <div>
@@ -177,14 +252,14 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {availableTags.length === 0 ? (
-                  <p className="text-sm text-gray-500">No hay tags disponibles</p>
+                  <p className="text-sm text-gray-500">Sin tags disponibles</p>
                 ) : (
                   availableTags.map(tag => (
                     <button
                       type="button"
                       key={tag.id}
-                      className={`px-3 py-1 rounded-full border text-xs font-semibold transition-colors duration-200 ${form.tags.includes(tag.name) ? 'bg-primary text-white border-primary' : 'bg-gray-100 text-primary border-gray-200 hover:bg-primary/10'}`}
-                      onClick={() => handleTagToggle(tag.name)}
+                      className={`px-3 py-1 rounded-full border text-xs font-semibold transition-colors duration-200 ${form.tags.includes(tag.id) ? 'bg-primary text-white border-primary' : 'bg-gray-100 text-primary border-gray-200 hover:bg-primary/10'}`}
+                      onClick={() => handleTagToggle(tag.id)}
                     >
                       <Tag className="w-3 h-3 inline mr-1" />{tag.name}
                     </button>
@@ -192,18 +267,57 @@ export default function EventoModal({ open, onClose, onSave, initialData }) {
                 )}
               </div>
             )}
-            {errors.tags && <p className="text-xs text-red-500 mt-1">{errors.tags}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Descripción</label>
             <textarea
-              name="descripcion"
-              value={form.descripcion}
+              name="description"
+              value={form.description}
               onChange={handleChange}
-              className={`input-field min-h-[80px] ${errors.descripcion ? 'border-red-500' : ''}`}
+              className={`input-field min-h-[80px] ${errors.description ? 'border-red-500' : ''}`}
               placeholder="Describe el evento..."
             />
-            {errors.descripcion && <p className="text-xs text-red-500 mt-1">{errors.descripcion}</p>}
+            {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Duración (minutos)</label>
+              <input
+                type="number"
+                name="duration_in_minutes"
+                value={form.duration_in_minutes}
+                onChange={handleChange}
+                className={`input-field ${errors.duration_in_minutes ? 'border-red-500' : ''}`}
+                min="0"
+                placeholder="Ej: 120"
+              />
+              {errors.duration_in_minutes && <p className="text-xs text-red-500 mt-1">{errors.duration_in_minutes}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Cupos</label>
+              <input
+                type="number"
+                name="max_assistance"
+                value={form.max_assistance}
+                onChange={handleChange}
+                className={`input-field ${errors.max_assistance ? 'border-red-500' : ''}`}
+                min="1"
+                placeholder="Ej: 50"
+              />
+              {errors.max_assistance && <p className="text-xs text-red-500 mt-1">{errors.max_assistance}</p>}
+            </div>
+          </div>
+          <div>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="enabled_for_enrollment"
+                checked={!!form.enabled_for_enrollment}
+                onChange={(e) => setForm(f => ({ ...f, enabled_for_enrollment: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              Habilitar inscripción
+            </label>
           </div>
           <div className="flex justify-end mt-6">
             <button type="submit" className="btn-primary px-8 py-3 text-lg">

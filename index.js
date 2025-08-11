@@ -42,6 +42,21 @@ app.use('/api/users', userRouter);
 app.use('/api/user', authRouter);
 app.use('/api/event-location', eventLocationRouter);
 
+// Public locations list for selects
+app.get('/api/locations', async (req, res) => {
+  try {
+    const { data, error } = await db.supabase
+      .from('locations')
+      .select('id, name')
+      .order('name');
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    console.error('Error listing locations:', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'API de eventos funcionando',

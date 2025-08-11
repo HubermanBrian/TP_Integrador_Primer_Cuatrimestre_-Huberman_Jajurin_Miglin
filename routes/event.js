@@ -1,20 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db-supabase');
-const jwt = require('jsonwebtoken');
-
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'No autenticado.' });
-    }
-    jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
-        if (err) return res.status(401).json({ message: 'Token inválido.' });
-        req.user = user;
-        next();
-    });
-}
+const { authenticateToken } = require('../middleware/auth');
 
 // GET /api/event - Listar eventos con filtros
 router.get('/', async (req, res) => {
@@ -126,6 +113,36 @@ router.get('/tags', async (req, res) => {
     }
 });
 
+// GET /api/event/categories - obtener todas las categorías
+router.get('/categories', async (req, res) => {
+    try {
+        const { data: categories, error } = await db.supabase
+            .from('event_categories')
+            .select('id, name')
+            .order('name');
+        if (error) throw error;
+        res.json(categories || []);
+    } catch (err) {
+        console.error('Error getting categories:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// GET /api/event/locations - obtener todas las ubicaciones
+router.get('/locations', async (req, res) => {
+    try {
+        const { data: locations, error } = await db.supabase
+            .from('event_locations')
+            .select('id, name, full_address, max_capacity')
+            .order('name');
+        if (error) throw error;
+        res.json(locations || []);
+    } catch (err) {
+        console.error('Error getting locations:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // GET /api/event/:id - Obtener evento específico
 router.get('/:id', async (req, res) => {
     const eventId = req.params.id;
@@ -146,6 +163,7 @@ router.get('/:id', async (req, res) => {
             id: event.id,
             name: event.name,
             description: event.description,
+            image_url: event.image_url || null,
             id_event_location: event.id_event_location,
             start_date: event.start_date,
             duration_in_minutes: event.duration_in_minutes,
@@ -226,35 +244,38 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Faltan campos obligatorios' });
         }
 
-        // Verificar que la ubicación del evento existe y tiene capacidad
-        const { data: locationData, error: locationError } = await db.supabase
-            .from('event_locations')
-            .select('max_capacity')
-            .eq('id', id_event_location)
-            .single();
-
-        if (locationError || !locationData) {
-            return res.status(400).json({ error: 'Ubicación del evento no válida' });
+        // Intentar obtener capacidad de la ubicación (si existe). Si no existe, continuar con un valor por defecto
+        let locationMaxCapacity = null;
+        try {
+            const { data: locationData } = await db.supabase
+                .from('event_locations')
+                .select('max_capacity')
+                .eq('id', id_event_location)
+                .single();
+            locationMaxCapacity = locationData ? locationData.max_capacity : null;
+        } catch (_) {
+            locationMaxCapacity = null;
         }
 
-        // Crear el evento
+        // Crear el evento con nombres de columnas reales
         const eventData = {
             name,
             description,
-            id_event_category,
-            id_event_location,
+            image_url: req.body.image_url || null,
+            category_id: id_event_category,
+            location_id: id_event_location,
             start_date,
             duration_in_minutes: duration_in_minutes || 0,
             price: price || 0,
             enabled_for_enrollment: enabled_for_enrollment !== undefined ? enabled_for_enrollment : true,
-            max_assistance: max_assistance || locationData.max_capacity,
-            id_creator_user: req.user.id
+            max_assistance: typeof max_assistance === 'number' ? max_assistance : (locationMaxCapacity ?? 100),
+            creator_id: req.user.id
         };
 
         const { data: newEvent, error: eventError } = await db.supabase
             .from('events')
             .insert(eventData)
-            .select()
+            .select('*')
             .single();
 
         if (eventError) throw eventError;
@@ -418,56 +439,60 @@ router.post('/:id/enrollment', authenticateToken, async (req, res) => {
 
     try {
         // 1. Verificar existencia del evento
-        const eventRes = await db.query('SELECT * FROM events WHERE id = $1', [eventId]);
-        if (eventRes.rows.length === 0) {
-            return res.status(404).json({ message: "El evento no existe." });
+        const { data: event, error: eventError } = await db.supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+        if (eventError || !event) {
+            return res.status(404).json({ message: 'El evento no existe.' });
         }
-        const event = eventRes.rows[0];
 
         // 2. Verificar si el usuario ya está inscripto
-        const alreadyEnrolled = await db.query(
-            'SELECT 1 FROM event_enrollments WHERE id_event = $1 AND id_user = $2',
-            [eventId, userId]
-        );
-        if (alreadyEnrolled.rows.length > 0) {
-            return res.status(400).json({ message: "El usuario ya se encuentra registrado en el evento." });
+        const { data: existing, error: existsError } = await db.supabase
+            .from('event_enrollments')
+            .select('id')
+            .eq('id_event', eventId)
+            .eq('id_user', userId);
+        if (existsError) throw existsError;
+        if (existing && existing.length > 0) {
+            return res.status(400).json({ message: 'El usuario ya se encuentra registrado en el evento.' });
         }
 
         // 3. Verificar capacidad máxima (max_assistance)
-        const countRes = await db.query(
-            'SELECT COUNT(*)::int AS count FROM event_enrollments WHERE id_event = $1',
-            [eventId]
-        );
-        if (countRes.rows[0].count >= event.capacidad) {
-            return res.status(400).json({ message: "Exceda la capacidad máxima de registrados al evento." });
+        const { count, error: countError } = await db.supabase
+            .from('event_enrollments')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_event', eventId);
+        if (countError) throw countError;
+        if ((count || 0) >= (event.max_assistance || 0)) {
+            return res.status(400).json({ message: 'Exceda la capacidad máxima de registrados al evento.' });
         }
 
         // 4. Verificar fecha del evento (no puede ser hoy ni pasada)
-        const eventDate = new Date(event.fecha_evento);
+        const eventDate = new Date(event.start_date);
         const now = new Date();
-        // Comparar solo fechas (sin hora)
         const eventDateStr = eventDate.toISOString().slice(0, 10);
         const todayStr = now.toISOString().slice(0, 10);
         if (eventDateStr <= todayStr) {
-            return res.status(400).json({ message: "No puede registrarse a un evento que ya sucedió o es hoy." });
+            return res.status(400).json({ message: 'No puede registrarse a un evento que ya sucedió o es hoy.' });
         }
 
         // 5. Verificar habilitado para inscripción (enabled_for_enrollment)
-        if (!event.habilitado_inscripcion) {
-            return res.status(400).json({ message: "El evento no está habilitado para la inscripción." });
+        if (event.enabled_for_enrollment === false) {
+            return res.status(400).json({ message: 'El evento no está habilitado para la inscripción.' });
         }
 
         // 6. Registrar inscripción con fecha y hora actual
-        await db.query(
-            `INSERT INTO event_enrollments (id_event, id_user, registration_date_time)
-             VALUES ($1, $2, NOW())`,
-            [eventId, userId]
-        );
+        const { error: enrollError } = await db.supabase
+            .from('event_enrollments')
+            .insert({ id_event: eventId, id_user: userId, registration_date_time: new Date().toISOString() });
+        if (enrollError) throw enrollError;
 
-        res.status(201).json({ message: "Inscripción exitosa." });
+        res.status(201).json({ message: 'Inscripción exitosa.' });
     } catch (err) {
         console.error('Error en inscripción:', err);
-        res.status(500).json({ message: "Database error" });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -478,40 +503,47 @@ router.delete('/:id/enrollment', authenticateToken, async (req, res) => {
 
     try {
         // 1. Verificar existencia del evento
-        const eventRes = await db.query('SELECT * FROM events WHERE id = $1', [eventId]);
-        if (eventRes.rows.length === 0) {
-            return res.status(404).json({ message: "El evento no existe." });
+        const { data: event, error: eventError } = await db.supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+        if (eventError || !event) {
+            return res.status(404).json({ message: 'El evento no existe.' });
         }
-        const event = eventRes.rows[0];
 
         // 2. Verificar si el usuario está inscripto
-        const enrollmentRes = await db.query(
-            'SELECT * FROM event_enrollments WHERE id_event = $1 AND id_user = $2',
-            [eventId, userId]
-        );
-        if (enrollmentRes.rows.length === 0) {
-            return res.status(400).json({ message: "El usuario no se encuentra registrado al evento." });
+        const { data: enrollment, error: enrollmentError } = await db.supabase
+            .from('event_enrollments')
+            .select('*')
+            .eq('id_event', eventId)
+            .eq('id_user', userId);
+        if (enrollmentError) throw enrollmentError;
+        if (!enrollment || enrollment.length === 0) {
+            return res.status(400).json({ message: 'El usuario no se encuentra registrado al evento.' });
         }
 
         // 3. Verificar fecha del evento (no puede ser hoy ni pasada)
-        const eventDate = new Date(event.fecha_evento);
+        const eventDate = new Date(event.start_date);
         const now = new Date();
         const eventDateStr = eventDate.toISOString().slice(0, 10);
         const todayStr = now.toISOString().slice(0, 10);
         if (eventDateStr <= todayStr) {
-            return res.status(400).json({ message: "No puede removerse de un evento que ya sucedió o es hoy." });
+            return res.status(400).json({ message: 'No puede removerse de un evento que ya sucedió o es hoy.' });
         }
 
         // 4. Remover inscripción
-        await db.query(
-            'DELETE FROM event_enrollments WHERE id_event = $1 AND id_user = $2',
-            [eventId, userId]
-        );
+        const { error: deleteError } = await db.supabase
+            .from('event_enrollments')
+            .delete()
+            .eq('id_event', eventId)
+            .eq('id_user', userId);
+        if (deleteError) throw deleteError;
 
-        res.status(200).json({ message: "El usuario fue removido de la inscripción al evento." });
+        res.status(200).json({ message: 'El usuario fue removido de la inscripción al evento.' });
     } catch (err) {
         console.error('Error al remover inscripción:', err);
-        res.status(500).json({ message: "Database error" });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

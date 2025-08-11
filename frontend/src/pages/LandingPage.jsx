@@ -63,7 +63,7 @@ const LandingPage = () => {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-secondary">EventosApp</span>
+              <span className="text-xl font-bold text-secondary">EvenTroca</span>
             </motion.div>
             
             <motion.div 
@@ -275,7 +275,7 @@ const LandingPage = () => {
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold">EventosApp</span>
+                <span className="text-xl font-bold">EvenTroca</span>
               </div>
               <p className="text-gray-300">
                 La mejor plataforma para descubrir y participar en eventos únicos.
@@ -311,7 +311,7 @@ const LandingPage = () => {
           </div>
           
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-300">
-            <p>&copy; 2024 EventosApp. Todos los derechos reservados.</p>
+            <p>&copy; 2024 EvenTroca. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

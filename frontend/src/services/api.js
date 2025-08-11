@@ -25,7 +25,8 @@ class ApiService {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        const message = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+        throw new Error(message);
       }
       
       return await response.json();
@@ -51,7 +52,8 @@ class ApiService {
 
   async getEvents(params = {}) {
     const queryString = new URLSearchParams(params).toString();
-    return this.request(`/events?${queryString}`);
+    const sep = queryString ? `?${queryString}` : '';
+    return this.request(`/events${sep}`);
   }
 
   async getEventById(id) {
@@ -115,7 +117,11 @@ class ApiService {
   }
 
   async getEventLocations() {
-    return this.request('/event-location');
+    return this.request('/event/locations');
+  }
+
+  async getLocations() {
+    return this.request('/locations');
   }
 
   async getEventLocationById(id) {
@@ -142,32 +148,12 @@ class ApiService {
     });
   }
 
-  async getLocations() {
-    return this.request('/locations');
-  }
-
-  async createLocation(locationData) {
-    return this.request('/locations', {
-      method: 'POST',
-      body: JSON.stringify(locationData),
-    });
-  }
-
-  async updateLocation(id, locationData) {
-    return this.request(`/locations/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(locationData),
-    });
-  }
-
-  async deleteLocation(id) {
-    return this.request(`/locations/${id}`, {
-      method: 'DELETE'
-    });
-  }
-
   async getTags() {
     return this.request('/event/tags');
+  }
+
+  async getEventCategories() {
+    return this.request('/event/categories');
   }
 
   async getUsers() {
@@ -176,6 +162,11 @@ class ApiService {
 
   async getUserById(id) {
     return this.request(`/users/${id}`);
+  }
+
+  async getProfile() {
+    const res = await this.request('/user/profile');
+    return res.user;
   }
 
   async healthCheck() {

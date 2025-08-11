@@ -15,6 +15,7 @@ export default function ExplorarEventosPage() {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [joiningId, setJoiningId] = useState(null);
   const navigate = useNavigate();
 
   // Load events and tags from API
@@ -40,9 +41,15 @@ export default function ExplorarEventosPage() {
           params.tag = filtros.tag;
         }
         
-        const eventsData = await apiService.getEvents(params);
+        const [eventsData, joinedData] = await Promise.all([
+          apiService.getEvents(params),
+          apiService.getUserJoinedEvents().catch(() => [])
+        ]);
+
+        const joinedIds = new Set((joinedData || []).map(ev => ev.id));
+        const filtered = (eventsData || []).filter(ev => !joinedIds.has(ev.id));
         
-        setEventos(eventsData);
+        setEventos(filtered);
         setTags([]); // Por ahora, no hay tags disponibles
         setError(null);
       } catch (err) {
@@ -67,6 +74,31 @@ export default function ExplorarEventosPage() {
 
   const handleCardClick = (id) => {
     navigate(`/evento/${id}`);
+  };
+
+  const handleJoin = async (id) => {
+    try {
+      setJoiningId(id);
+      await apiService.joinEvent(id);
+      // Remove joined event from current list
+      setEventos(prev => prev.filter(ev => ev.id !== id));
+    } catch (err) {
+      console.error('Error joining event:', err);
+      const msg = (err && err.message) || '';
+      if (msg.includes('Ya se encuentra') || msg.includes('No se encuentra') || msg.includes('Ya estás inscripto')) {
+        // Already enrolled: remove from list
+        setEventos(prev => prev.filter(ev => ev.id !== id));
+      } else if (msg.includes('completo') || msg.includes('capacidad')) {
+        // Mark as not enabled to show "No habilitado"
+        setEventos(prev => prev.map(ev => ev.id === id ? { ...ev, enabled_for_enrollment: false } : ev));
+      } else if (msg.includes('No está habilitado') || msg.includes('habilitado')) {
+        setEventos(prev => prev.map(ev => ev.id === id ? { ...ev, enabled_for_enrollment: false } : ev));
+      } else {
+        setError(msg || 'No se pudo unir al evento');
+      }
+    } finally {
+      setJoiningId(null);
+    }
   };
 
   return (
@@ -140,7 +172,9 @@ export default function ExplorarEventosPage() {
         {!loading && !error && eventosPagina.length === 0 && (
           <div className="col-span-full text-center text-gray-500 py-12">No se encontraron eventos.</div>
         )}
-        {eventosPagina.map(ev => (
+        {eventosPagina.map(ev => {
+          const joinDisabled = ev.enabled_for_enrollment === false;
+          return (
           <div
             key={ev.id}
             className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-300 cursor-pointer"
@@ -148,7 +182,7 @@ export default function ExplorarEventosPage() {
           >
             <div className="h-32 w-full overflow-hidden">
               <img 
-                src={`https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=220&fit=crop&${ev.id}`} 
+                src={(ev.image_url && ev.image_url.trim()) ? ev.image_url : `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=220&fit=crop&${ev.id}`} 
                 alt={ev.name} 
                 className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" 
               />
@@ -158,7 +192,7 @@ export default function ExplorarEventosPage() {
                 <h3 className="text-lg font-bold text-secondary mb-1 truncate">{ev.name}</h3>
                 <div className="flex items-center text-gray-500 text-xs mb-2 gap-2">
                   <Calendar className="w-4 h-4" /> {ev.start_date?.split('T')[0]}
-                  <MapPin className="w-4 h-4 ml-4" /> {ev.location_name}
+                  <MapPin className="w-4 h-4 ml-4" /> {ev.location_name || ev.location?.name || 'Sin ubicación'}
                 </div>
                 <div className="flex flex-wrap gap-1 mb-2">
                   {ev.tags && ev.tags.map(tag => (
@@ -172,17 +206,17 @@ export default function ExplorarEventosPage() {
               <div className="flex items-center justify-between mt-2">
                 <span className="font-bold text-primary text-base">{ev.price === 0 ? 'Gratis' : `$${ev.price}`}</span>
                 <button 
-                  className={`btn-primary flex items-center gap-1 text-sm px-4 py-2 ${ev.enabled_for_enrollment === '1' ? '' : 'opacity-50 cursor-not-allowed'}`} 
-                  onClick={e => { e.stopPropagation(); }}
-                  disabled={ev.enabled_for_enrollment !== '1'}
+                  className={`btn-primary flex items-center gap-1 text-sm px-4 py-2 ${joinDisabled ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                  onClick={e => { e.stopPropagation(); if (!joinDisabled) handleJoin(ev.id); }}
+                  disabled={joinDisabled || joiningId === ev.id}
                 >
                   <Users className="w-4 h-4" /> 
-                  {ev.enabled_for_enrollment === '1' ? 'Unirse' : 'Completo'}
+                  {joiningId === ev.id ? 'Uniendo...' : (joinDisabled ? 'No habilitado' : 'Unirse')}
                 </button>
               </div>
             </div>
           </div>
-        ))}
+        );})}
       </div>
       {/* Paginación */}
       {totalPaginas > 1 && (

@@ -1,4 +1,4 @@
-# EventosApp - Frontend
+# EvenTroca - Frontend
 
 Una aplicación web moderna para descubrir y participar en eventos increíbles. Desarrollada con React, Vite y Tailwind CSS.
 
@@ -26,7 +26,7 @@ Una aplicación web moderna para descubrir y participar en eventos increíbles. 
 1. **Clonar el repositorio**
    ```bash
    git clone [URL_DEL_REPOSITORIO]
-   cd ssss
+   cd frontend
    ```
 
 2. **Instalar dependencias**
@@ -169,4 +169,4 @@ Las contribuciones son bienvenidas. Por favor, abre un issue o pull request para
 
 ---
 
-**Desarrollado con ❤️ para el TP Integrador de Eventos** 
+**Desarrollado con ❤️ para el TP Integrador de Eventos**

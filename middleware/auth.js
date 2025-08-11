@@ -8,7 +8,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'jwt_secret_key', (err, user) => {
     if (err) {
       return res.status(403).json({ error: 'Token inválido' });
     }

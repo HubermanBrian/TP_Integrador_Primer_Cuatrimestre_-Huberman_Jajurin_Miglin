@@ -141,6 +141,9 @@ const getEvents = async (filters = {}) => {
     if (filters.enabled !== undefined) {
       query = query.eq('enabled_for_enrollment', filters.enabled);
     }
+    if (filters.name) {
+      query = query.ilike('name', `%${filters.name}%`);
+    }
 
     const { data, error } = await query;
     if (error) {

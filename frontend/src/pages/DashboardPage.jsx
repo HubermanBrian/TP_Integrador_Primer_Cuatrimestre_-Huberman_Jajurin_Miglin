@@ -17,12 +17,17 @@ export default function DashboardPage() {
   const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
   const [advertencia, setAdvertencia] = useState({ show: false, id: null, nombre: '' });
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         setError('');
+        
+        // Fetch user profile
+        const userProfile = await apiService.getProfile();
+        setUser(userProfile);
         
         // Fetch user's created events
         const createdEvents = await apiService.getUserCreatedEvents();
@@ -56,7 +61,10 @@ export default function DashboardPage() {
 
     try {
       setSearching(true);
-      const results = await apiService.getEvents({ name: searchTerm });
+      const term = searchTerm.trim();
+      const isDate = /^\d{4}-\d{2}-\d{2}$/.test(term);
+      const params = isDate ? { startdate: term } : { search: term };
+      const results = await apiService.getEvents(params);
       setSearchResults(results);
     } catch (err) {
       console.error('Error searching events:', err);
@@ -198,7 +206,9 @@ export default function DashboardPage() {
       <header className="mb-10 max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-primary">Bienvenido, Usuario 👋</h1>
+            <h1 className="text-3xl font-bold text-primary">
+              Bienvenido, {user ? `${user.first_name} ${user.last_name}` : 'Usuario'} 👋
+            </h1>
             <p className="text-gray-600 mt-2">Gestiona tus eventos y descubre nuevos</p>
           </div>
           <div className="flex gap-3">
@@ -222,7 +232,7 @@ export default function DashboardPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={handleSearchKeyPress}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="Buscar eventos por nombre..."
+                placeholder="Buscar por nombre o fecha (YYYY-MM-DD)..."
               />
             </div>
             <button 
