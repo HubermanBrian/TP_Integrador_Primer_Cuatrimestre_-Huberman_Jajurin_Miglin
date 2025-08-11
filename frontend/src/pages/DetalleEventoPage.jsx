@@ -19,7 +19,7 @@ export default function DetalleEventoPage() {
         const eventData = await apiService.getEventById(id);
         setEvento(eventData);
         
-        // Fetch participants for this event
+
         const participantsData = await apiService.getEventParticipants(id);
         setParticipantes(participantsData);
       } catch (err) {
@@ -37,7 +37,7 @@ export default function DetalleEventoPage() {
     try {
       await apiService.joinEvent(id);
       setUnido(true);
-      // Refresh participants list
+
       const participantsData = await apiService.getEventParticipants(id);
       setParticipantes(participantsData);
     } catch (err) {
@@ -50,7 +50,7 @@ export default function DetalleEventoPage() {
     try {
       await apiService.leaveEvent(id);
       setUnido(false);
-      // Refresh participants list
+
       const participantsData = await apiService.getEventParticipants(id);
       setParticipantes(participantsData);
     } catch (err) {
@@ -125,7 +125,7 @@ export default function DetalleEventoPage() {
             </div>
           </div>
           
-          {/* Información de ubicación */}
+   
           {evento.event_location && (
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
               <h3 className="font-semibold text-secondary mb-2 flex items-center gap-2">
@@ -170,7 +170,7 @@ export default function DetalleEventoPage() {
               </span>
             ))}
           </div>
-          {/* Botón de inscripción */}
+    
           {unido ? (
             <button className="btn-secondary flex items-center gap-2 text-lg px-8 py-3 text-red-600 border-red-400 hover:bg-red-50" onClick={handleCancelar}>
               <XCircle className="w-5 h-5" /> Cancelar inscripción
@@ -182,7 +182,7 @@ export default function DetalleEventoPage() {
           )}
         </div>
       </div>
-      {/* Participantes */}
+
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mt-8 p-6">
         <h2 className="text-2xl font-bold text-primary mb-4 flex items-center gap-2">
           <User className="w-6 h-6" /> Participantes ({participantes.length})

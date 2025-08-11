@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Calendar, MapPin, Tag, Users } from 'lucide-react';
 import apiService from '../services/api';
 
-// Default tags from database
-// Tags will be loaded from the database
+
 
 const PAGE_SIZE = 3;
 
@@ -18,19 +17,19 @@ export default function ExplorarEventosPage() {
   const [joiningId, setJoiningId] = useState(null);
   const navigate = useNavigate();
 
-  // Load events and tags from API
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
         
-        // Build search parameters
+
         const params = {
           limit: 50,
           offset: 0,
         };
         
-        // Add search parameters based on filters
+ 
         if (filtros.nombre) {
           params.name = filtros.nombre;
         }
@@ -50,7 +49,7 @@ export default function ExplorarEventosPage() {
         const filtered = (eventsData || []).filter(ev => !joinedIds.has(ev.id));
         
         setEventos(filtered);
-        setTags([]); // Por ahora, no hay tags disponibles
+        setTags([]); 
         setError(null);
       } catch (err) {
         console.error('Error loading data:', err);
@@ -63,7 +62,7 @@ export default function ExplorarEventosPage() {
     loadData();
   }, [filtros.nombre, filtros.fecha, filtros.tag]);
 
-  // Pagination (now handled by backend, but keeping client-side pagination for UI)
+
   const totalPaginas = Math.ceil(eventos.length / PAGE_SIZE);
   const eventosPagina = eventos.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
 
@@ -80,16 +79,16 @@ export default function ExplorarEventosPage() {
     try {
       setJoiningId(id);
       await apiService.joinEvent(id);
-      // Remove joined event from current list
+
       setEventos(prev => prev.filter(ev => ev.id !== id));
     } catch (err) {
       console.error('Error joining event:', err);
       const msg = (err && err.message) || '';
       if (msg.includes('Ya se encuentra') || msg.includes('No se encuentra') || msg.includes('Ya estás inscripto')) {
-        // Already enrolled: remove from list
+
         setEventos(prev => prev.filter(ev => ev.id !== id));
       } else if (msg.includes('completo') || msg.includes('capacidad')) {
-        // Mark as not enabled to show "No habilitado"
+     
         setEventos(prev => prev.map(ev => ev.id === id ? { ...ev, enabled_for_enrollment: false } : ev));
       } else if (msg.includes('No está habilitado') || msg.includes('habilitado')) {
         setEventos(prev => prev.map(ev => ev.id === id ? { ...ev, enabled_for_enrollment: false } : ev));
@@ -106,7 +105,7 @@ export default function ExplorarEventosPage() {
       <h1 className="text-3xl font-bold text-primary mb-8 flex items-center gap-2">
         <Search className="w-7 h-7" /> Explorar eventos
       </h1>
-      {/* Filtros */}
+
       <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8 flex flex-col md:flex-row gap-4 items-center">
         <div className="flex-1 w-full flex flex-col md:flex-row gap-4">
           <div className="relative w-full md:w-1/3">
@@ -120,22 +119,7 @@ export default function ExplorarEventosPage() {
               placeholder="Buscar por nombre..."
             />
           </div>
-          {/* Filtro de tags temporalmente deshabilitado
-          <div className="relative w-full md:w-1/3">
-            <Tag className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-            <select
-              name="tag"
-              value={filtros.tag}
-              onChange={handleFiltroChange}
-              className="input-field pl-10"
-            >
-              <option value="">Todos los tags</option>
-              {tags.map(tag => (
-                <option key={tag.id} value={tag.name}>{tag.name}</option>
-              ))}
-            </select>
-          </div>
-          */}
+        
           <div className="relative w-full md:w-1/3">
             <Calendar className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
             <input
@@ -148,7 +132,7 @@ export default function ExplorarEventosPage() {
           </div>
         </div>
       </div>
-      {/* Resultados */}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {loading && (
           <div className="col-span-full text-center text-gray-500 py-12">
@@ -218,7 +202,7 @@ export default function ExplorarEventosPage() {
           </div>
         );})}
       </div>
-      {/* Paginación */}
+   
       {totalPaginas > 1 && (
         <div className="flex justify-center items-center gap-2">
           {Array.from({ length: totalPaginas }, (_, i) => (

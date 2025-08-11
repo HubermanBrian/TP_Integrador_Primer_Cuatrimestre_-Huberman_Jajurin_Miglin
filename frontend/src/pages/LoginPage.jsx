@@ -29,10 +29,10 @@ const LoginPage = () => {
     try {
       const response = await apiService.login(formData)
       
-      // Store the token
+
       localStorage.setItem('token', response.token)
       
-      // Redirect to dashboard
+
       navigate('/dashboard')
       
     } catch (error) {
@@ -46,7 +46,7 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
+       
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -59,7 +59,7 @@ const LoginPage = () => {
           
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-white" />
+              <img src="Eventroca.png" alt="EvenTroca Logo" className="w-6 h-6 object-contain" />
             </div>
             <span className="text-2xl font-bold text-secondary">EvenTroca</span>
           </div>
@@ -72,7 +72,7 @@ const LoginPage = () => {
           </p>
         </motion.div>
 
-        {/* Login Form */}
+    
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -80,7 +80,7 @@ const LoginPage = () => {
           className="card p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
+            
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex">
@@ -90,7 +90,7 @@ const LoginPage = () => {
                 </div>
               </div>
             )}
-            {/* Email Field */}
+        
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 Correo electrónico
@@ -112,7 +112,7 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Password Field */}
+        
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Contraseña
@@ -145,7 +145,7 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
+           
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <input
@@ -165,7 +165,7 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Submit Button */}
+    
             <button
               type="submit"
               disabled={isLoading}
@@ -182,7 +182,7 @@ const LoginPage = () => {
             </button>
           </form>
 
-          {/* Divider */}
+      
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -194,7 +194,7 @@ const LoginPage = () => {
             </div>
           </div>
 
-          {/* Social Login Buttons */}
+      
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -214,7 +214,7 @@ const LoginPage = () => {
           </div>
         </motion.div>
 
-        {/* Sign Up Link */}
+     
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

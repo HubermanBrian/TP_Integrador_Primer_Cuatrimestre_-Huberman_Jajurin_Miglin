@@ -25,19 +25,17 @@ export default function DashboardPage() {
         setLoading(true);
         setError('');
         
-        // Fetch user profile
+
         const userProfile = await apiService.getProfile();
         setUser(userProfile);
         
-        // Fetch user's created events
+
         const createdEvents = await apiService.getUserCreatedEvents();
         setEventosCreados(createdEvents);
-        
-        // Fetch user's joined events
+
         const joinedEvents = await apiService.getUserJoinedEvents();
         setEventosUnidos(joinedEvents);
-        
-        // Fetch global events (all events)
+
         const globalEvents = await apiService.getEvents();
         setEventosMundiales(globalEvents);
         
@@ -147,11 +145,11 @@ export default function DashboardPage() {
   const handleSaveEvento = async (evento) => {
     try {
       if (editEvento) {
-        // Editar
+
         const updatedEvent = await apiService.updateEvent(editEvento.id, evento);
         setEventosCreados(eventosCreados.map(ev => ev.id === editEvento.id ? updatedEvent : ev));
       } else {
-        // Crear
+
         const newEvent = await apiService.createEvent(evento);
         setEventosCreados([...eventosCreados, newEvent]);
       }
@@ -178,7 +176,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 py-10 px-4">
       <EventoModal open={modalOpen} onClose={() => { setModalOpen(false); setEditEvento(null); }} onSave={handleSaveEvento} initialData={editEvento} />
       
-      {/* Error Message */}
+
       {error && (
         <div className="max-w-5xl mx-auto mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex">
@@ -189,7 +187,7 @@ export default function DashboardPage() {
         </div>
       )}
       
-      {/* Modal de advertencia para eliminar */}
+
       {advertencia.show && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-8 max-w-sm w-full text-center">
@@ -221,7 +219,7 @@ export default function DashboardPage() {
           </div>
         </div>
         
-        {/* Barra de búsqueda */}
+
         <div className="bg-white rounded-xl shadow-md border border-gray-100 p-4">
           <div className="flex gap-4 items-center">
             <div className="flex-1 relative">
@@ -263,7 +261,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Resultados de búsqueda */}
+
       {searchResults.length > 0 && (
         <div className="max-w-5xl mx-auto mb-8">
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
@@ -302,7 +300,7 @@ export default function DashboardPage() {
       )}
 
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* Mis eventos */}
+
         <section className="space-y-8">
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
             <div className="flex justify-between items-center mb-4">
@@ -369,7 +367,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Eventos mundiales */}
+
         <section className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 h-fit">
           <h2 className="text-xl font-bold text-secondary mb-4 flex items-center gap-2">
             <Globe className="w-6 h-6 text-primary" /> Eventos disponibles

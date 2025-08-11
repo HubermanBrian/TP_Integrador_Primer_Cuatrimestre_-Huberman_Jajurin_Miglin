@@ -10,7 +10,7 @@ export default function Navbar({ onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
         <Link to="/dashboard" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-white" />
+            <img src="Eventroca.png" alt="EvenTroca Logo" className="w-6 h-6 object-contain" />
           </div>
           <span className="text-xl font-bold text-secondary">EvenTroca</span>
         </Link>

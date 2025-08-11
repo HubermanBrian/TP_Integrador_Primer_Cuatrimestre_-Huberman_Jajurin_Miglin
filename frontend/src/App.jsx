@@ -13,7 +13,7 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Scroll animations
+
     const observerOptions = {
       threshold: 0.1,
       rootMargin: '0px 0px -50px 0px'
@@ -35,7 +35,7 @@ function App() {
     }
   }, [])
 
-  // Mostrar Navbar solo en páginas internas
+
   const showNavbar = ['/dashboard', '/explorar', location.pathname.startsWith('/evento/') ? location.pathname : ''].includes(location.pathname);
   const handleLogout = () => {
     navigate('/login');

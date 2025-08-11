@@ -42,7 +42,7 @@ app.use('/api/users', userRouter);
 app.use('/api/user', authRouter);
 app.use('/api/event-location', eventLocationRouter);
 
-// Public locations list for selects
+
 app.get('/api/locations', async (req, res) => {
   try {
     const { data, error } = await db.supabase

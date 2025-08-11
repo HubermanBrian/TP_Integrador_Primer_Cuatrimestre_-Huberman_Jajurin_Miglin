@@ -16,7 +16,7 @@ const LandingPage = () => {
         setUpcomingEvents(events);
       } catch (err) {
         console.error('Error fetching upcoming events:', err);
-        // Fallback to empty array if API fails
+
         setUpcomingEvents([]);
       } finally {
         setLoading(false);
@@ -51,7 +51,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      {/* Navigation */}
+
       <nav className="fixed top-0 w-full z-50 glass-effect">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -61,7 +61,7 @@ const LandingPage = () => {
               className="flex items-center space-x-2"
             >
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-white" />
+                <img src="Eventroca.png" alt="EvenTroca Logo" className="w-6 h-6 object-contain" />
               </div>
               <span className="text-xl font-bold text-secondary">EvenTroca</span>
             </motion.div>
@@ -82,7 +82,7 @@ const LandingPage = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
+
       <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
@@ -125,7 +125,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <motion.div 
@@ -167,7 +167,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Upcoming Events Section */}
+     
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <motion.div 
@@ -239,7 +239,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-primary">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div
@@ -266,7 +266,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
+
       <footer className="bg-secondary text-white py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">

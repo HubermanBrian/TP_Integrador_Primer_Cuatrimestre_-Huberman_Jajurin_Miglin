@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
-// Configuración de Supabase desde variables de entorno
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
@@ -13,13 +13,12 @@ if (!supabaseUrl || !supabaseKey) {
   process.exit(1);
 }
 
-// Crear cliente de Supabase
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 console.log('🔗 Conectado a Supabase');
 console.log('📊 URL:', supabaseUrl);
 
-// Función para insertar datos
+
 const insert = async (table, data) => {
   try {
     const { data: result, error } = await supabase
@@ -36,12 +35,12 @@ const insert = async (table, data) => {
   }
 };
 
-// Función para actualizar datos
+
 const update = async (table, data, conditions) => {
   try {
     let query = supabase.from(table).update(data);
     
-    // Aplicar condiciones WHERE
+
     Object.keys(conditions).forEach(key => {
       query = query.eq(key, conditions[key]);
     });
@@ -57,12 +56,12 @@ const update = async (table, data, conditions) => {
   }
 };
 
-// Función para eliminar datos
+
 const remove = async (table, conditions) => {
   try {
     let query = supabase.from(table).delete();
     
-    // Aplicar condiciones WHERE
+
     Object.keys(conditions).forEach(key => {
       query = query.eq(key, conditions[key]);
     });
@@ -78,7 +77,7 @@ const remove = async (table, conditions) => {
   }
 };
 
-// Función para probar la conexión
+
 const testConnection = async () => {
   try {
     const { data, error } = await supabase
@@ -96,12 +95,11 @@ const testConnection = async () => {
   }
 };
 
-// Función para obtener datos de una tabla
 const select = async (table, columns = '*', conditions = {}) => {
   try {
     let query = supabase.from(table).select(columns);
     
-    // Aplicar condiciones WHERE
+
     Object.keys(conditions).forEach(key => {
       query = query.eq(key, conditions[key]);
     });
@@ -117,10 +115,10 @@ const select = async (table, columns = '*', conditions = {}) => {
   }
 };
 
-// Función para obtener eventos con filtros
+
 const getEvents = async (filters = {}) => {
   try {
-    // Usar consulta simple basada en el esquema real de la base de datos
+   
     let query = supabase
       .from('events')
       .select(`
@@ -128,7 +126,7 @@ const getEvents = async (filters = {}) => {
         event_categories(name)
       `);
     
-    // Aplicar filtros usando los nombres de columnas correctos
+
     if (filters.category) {
       query = query.eq('category_id', filters.category);
     }
@@ -147,12 +145,12 @@ const getEvents = async (filters = {}) => {
 
     const { data, error } = await query;
     if (error) {
-      // Si falla el join, intentar sin él
+
       let simpleQuery = supabase
         .from('events')
         .select('*');
       
-      // Aplicar filtros
+
       if (filters.category) {
         simpleQuery = simpleQuery.eq('category_id', filters.category);
       }
@@ -178,7 +176,7 @@ const getEvents = async (filters = {}) => {
   }
 };
 
-// Función para obtener eventos creados por un usuario
+
 const getUserCreatedEvents = async (userId) => {
   try {
     const { data, error } = await supabase
@@ -206,7 +204,7 @@ const getUserCreatedEvents = async (userId) => {
   }
 };
 
-// Función para obtener eventos en los que está inscrito un usuario
+
 const getUserJoinedEvents = async (userId) => {
   try {
     const { data, error } = await supabase
@@ -240,7 +238,7 @@ const getUserJoinedEvents = async (userId) => {
   }
 };
 
-// Función para obtener un evento específico con todos sus datos relacionados
+
 const getEventById = async (eventId) => {
   try {
     const { data, error } = await supabase
@@ -270,7 +268,7 @@ const getEventById = async (eventId) => {
   }
 };
 
-// Función para verificar si un usuario está inscrito en un evento
+
 const checkUserEnrollment = async (userId, eventId) => {
   try {
     const { data, error } = await supabase
@@ -280,7 +278,7 @@ const checkUserEnrollment = async (userId, eventId) => {
       .eq('id_event', eventId)
       .single();
     
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+    if (error && error.code !== 'PGRST116') throw error;
     
     return { rows: data ? [data] : [] };
   } catch (error) {
@@ -289,7 +287,7 @@ const checkUserEnrollment = async (userId, eventId) => {
   }
 };
 
-// Función para obtener el número de inscripciones de un evento
+
 const getEventEnrollmentCount = async (eventId) => {
   try {
     const { count, error } = await supabase

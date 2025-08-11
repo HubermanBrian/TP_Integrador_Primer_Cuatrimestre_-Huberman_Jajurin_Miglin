@@ -2,26 +2,21 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db-supabase');
 
-// Listar eventos futuros con información completa
 router.get('/', async (req, res) => {
   try {
     const { limit = 50, offset = 0, category_id, location_id, search, name, startdate, tag } = req.query;
     const now = new Date();
     
-    // Construir filtros
     const filters = {};
     if (category_id) filters.category = category_id;
     if (location_id) filters.location = location_id;
     if (name) filters.name = name;
     if (search && !filters.name) filters.name = search;
     
-    // Obtener eventos usando la nueva función
     const result = await db.getEvents(filters);
     
-    // Filtrar eventos futuros y aplicar búsqueda
     let events = result.rows.filter(event => new Date(event.start_date) > now);
 
-    // Filtrar por fecha exacta (solo parte de fecha)
     if (startdate) {
       events = events.filter(event => {
         const d = new Date(event.start_date);
@@ -30,7 +25,6 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Aplicar búsqueda por texto si se proporciona
     if (search) {
       events = events.filter(event => 
         event.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -38,10 +32,8 @@ router.get('/', async (req, res) => {
       );
     }
     
-    // Aplicar límite y offset
     events = events.slice(offset, offset + parseInt(limit));
     
-    // Transformar la estructura de datos
     const transformedEvents = events.map(event => ({
       id: event.id,
       name: event.name,
@@ -74,7 +66,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Detalle de evento con información completa
 router.get('/:id', async (req, res) => {
   try {
     const result = await db.getEventById(req.params.id);
@@ -84,7 +75,6 @@ router.get('/:id', async (req, res) => {
     
     const event = result.rows[0];
     
-    // Transformar la estructura de datos
     const transformedEvent = {
       id: event.id,
       name: event.name,
@@ -122,7 +112,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Crear evento
 router.post('/', async (req, res) => {
   try {
     const { name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user } = req.body;
@@ -147,7 +136,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Modificar evento
 router.put('/:id', async (req, res) => {
   try {
     const { name, description, id_event_category, id_event_location, start_date, duration_in_minutes, price, enabled_for_enrollment, max_assistance, id_creator_user } = req.body;
@@ -176,7 +164,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Inscribirse a un evento
 router.post('/:id/enroll', async (req, res) => {
   try {
     const { id_user, description } = req.body;
@@ -195,7 +182,6 @@ router.post('/:id/enroll', async (req, res) => {
   }
 });
 
-// Listar inscriptos a un evento
 router.get('/:id/enrollments', async (req, res) => {
   try {
     const { data, error } = await db.supabase

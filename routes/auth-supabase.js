@@ -3,17 +3,16 @@ const router = express.Router();
 const { supabase, insert, select } = require('../db-supabase');
 const bcrypt = require('bcryptjs');
 
-// Función para validar email
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
 }
 
-// POST /api/user/register
+
 router.post('/register', async (req, res) => {
     const { first_name, last_name, username, password } = req.body;
 
-    // Validaciones según especificación
+    
     if (!first_name || first_name.trim().length < 3) {
         return res.status(400).json({ 
             success: false, 
@@ -47,7 +46,7 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-        // Verificar si el usuario ya existe
+
         const existingUser = await select('users', 'id', { username });
         if (existingUser.rows.length > 0) {
             return res.status(400).json({ 
@@ -57,10 +56,10 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Hash de la contraseña
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insertar nuevo usuario usando Supabase
+
         const { data: newUser, error } = await supabase
             .from('users')
             .insert({
@@ -102,11 +101,11 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// POST /api/user/login
+
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
-    // Validar que se proporcionen los campos
+
     if (!username || !password) {
         return res.status(400).json({ 
             success: false, 
@@ -115,7 +114,6 @@ router.post('/login', async (req, res) => {
         });
     }
 
-    // Validar formato de email
     if (!isValidEmail(username)) {
         return res.status(400).json({ 
             success: false, 
@@ -125,7 +123,7 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        // Buscar usuario por username usando Supabase
+
         const { data: users, error } = await supabase
             .from('users')
             .select('*')
@@ -151,7 +149,7 @@ router.post('/login', async (req, res) => {
 
         const user = users[0];
 
-        // Verificar contraseña
+
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
             return res.status(401).json({ 
@@ -161,7 +159,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Generar token JWT (mantenemos compatibilidad con el código existente)
+
         const jwt = require('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_key';
         
@@ -192,7 +190,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// GET /api/user/profile - Obtener perfil del usuario
+
 router.get('/profile', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];

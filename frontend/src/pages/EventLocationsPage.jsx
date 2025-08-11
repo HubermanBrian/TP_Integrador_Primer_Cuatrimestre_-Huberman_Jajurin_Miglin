@@ -29,11 +29,11 @@ export default function EventLocationsPage() {
     fetchLocations();
   }, []);
 
-  // Paginación
+
   const totalPaginas = Math.ceil(ubicaciones.length / PAGE_SIZE);
   const ubicacionesPagina = ubicaciones.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
 
-  // Handlers CRUD
+
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async e => {
@@ -87,7 +87,7 @@ export default function EventLocationsPage() {
     <div className="max-w-2xl mx-auto py-10 px-4">
       <h1 className="text-3xl font-bold text-primary mb-8">Ubicaciones de Eventos</h1>
       
-      {/* Error Message */}
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <div className="flex">
@@ -148,7 +148,7 @@ export default function EventLocationsPage() {
             ))
           )}
         </ul>
-        {/* Paginación */}
+
         {totalPaginas > 1 && (
           <div className="flex justify-center items-center gap-2 mt-4">
             {Array.from({ length: totalPaginas }, (_, i) => (

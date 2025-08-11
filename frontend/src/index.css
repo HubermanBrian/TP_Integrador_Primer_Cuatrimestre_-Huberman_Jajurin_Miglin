@@ -3,9 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  /* * {
-    @apply border-border;
-  } */
+
   
   body {
     @apply bg-white text-secondary font-sans;
@@ -39,7 +37,7 @@
   }
 }
 
-/* Scroll animations */
+
 .scroll-animate {
   opacity: 0;
   transform: translateY(30px);
@@ -51,7 +49,7 @@
   transform: translateY(0);
 }
 
-/* Custom scrollbar */
+
 ::-webkit-scrollbar {
   width: 8px;
 }

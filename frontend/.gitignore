@@ -1,26 +1,21 @@
-# Archivos del sistema
+
 .DS_Store
 Thumbs.db
 
-# Archivos temporales
 *.tmp
 *.temp
 *.log
 
-# Dependencias
 node_modules/
 vendor/
 
-# Archivos de configuración local
 .env
 .env.local
 
-# Archivos de build
 dist/
 build/
 out/
 
-# Archivos de IDE
 .vscode/
 .idea/
 *.swp

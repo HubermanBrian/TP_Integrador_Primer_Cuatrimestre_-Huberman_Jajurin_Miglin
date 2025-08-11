@@ -23,33 +23,30 @@ const SignUpPage = () => {
   const validateForm = () => {
     const newErrors = {}
 
-    // Validar nombre
     if (!formData.first_name.trim() || formData.first_name.length < 3) {
       newErrors.first_name = 'El nombre debe tener al menos 3 caracteres'
     }
 
-    // Validar apellido
+
     if (!formData.last_name.trim() || formData.last_name.length < 3) {
       newErrors.last_name = 'El apellido debe tener al menos 3 caracteres'
     }
 
-    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(formData.username)) {
       newErrors.username = 'Ingresa un email válido'
     }
 
-    // Validar contraseña
+
     if (!formData.password || formData.password.length < 6) {
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres'
     }
 
-    // Validar confirmación de contraseña
+
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Las contraseñas no coinciden'
     }
 
-    // Validar términos
     if (!agreedToTerms) {
       newErrors.terms = 'Debes aceptar los términos y condiciones'
     }
@@ -64,7 +61,7 @@ const SignUpPage = () => {
       [e.target.name]: e.target.value
     })
     
-    // Limpiar error del campo cuando el usuario empiece a escribir
+
     if (errors[e.target.name]) {
       setErrors({
         ...errors,
@@ -96,7 +93,7 @@ const SignUpPage = () => {
       
       setSuccessMessage('¡Cuenta creada exitosamente! Redirigiendo al login...')
       
-      // Redirect to login after 2 seconds
+
       setTimeout(() => {
         navigate('/login')
       }, 2000)
@@ -132,7 +129,7 @@ const SignUpPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
+        
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -145,7 +142,7 @@ const SignUpPage = () => {
           
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-white" />
+            <img src="Eventroca.png" alt="EvenTroca Logo" className="w-6 h-6 object-contain" />
             </div>
             <span className="text-2xl font-bold text-secondary">EvenTroca</span>
           </div>
@@ -158,7 +155,7 @@ const SignUpPage = () => {
           </p>
         </motion.div>
 
-        {/* Sign Up Form */}
+        
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -166,7 +163,7 @@ const SignUpPage = () => {
           className="card p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Success Message */}
+           
             {successMessage && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex">
@@ -178,7 +175,7 @@ const SignUpPage = () => {
               </div>
             )}
 
-            {/* General Error Message */}
+          
             {errors.general && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex">
@@ -188,7 +185,7 @@ const SignUpPage = () => {
                 </div>
               </div>
             )}
-            {/* Name Fields */}
+           
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -239,7 +236,7 @@ const SignUpPage = () => {
               </div>
             </div>
 
-            {/* Email Field */}
+     
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 Correo electrónico
@@ -264,7 +261,7 @@ const SignUpPage = () => {
               )}
             </div>
 
-            {/* Password Field */}
+          
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Contraseña
@@ -296,7 +293,7 @@ const SignUpPage = () => {
                 </button>
               </div>
               
-              {/* Password Strength Indicator */}
+             
               {formData.password && (
                 <div className="mt-2">
                   <div className="flex space-x-1">
@@ -323,7 +320,7 @@ const SignUpPage = () => {
               )}
             </div>
 
-            {/* Confirm Password Field */}
+         
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
                 Confirmar contraseña
@@ -359,7 +356,7 @@ const SignUpPage = () => {
               )}
             </div>
 
-            {/* Terms and Conditions */}
+            
             <div className="flex items-start">
               <div className="flex items-center h-5">
                 <input
@@ -388,7 +385,7 @@ const SignUpPage = () => {
               <p className="text-sm text-red-600">{errors.terms}</p>
             )}
 
-            {/* Submit Button */}
+            
             <button
               type="submit"
               disabled={isLoading}
@@ -405,7 +402,7 @@ const SignUpPage = () => {
             </button>
           </form>
 
-          {/* Divider */}
+          
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -417,7 +414,7 @@ const SignUpPage = () => {
             </div>
           </div>
 
-          {/* Social Sign Up Buttons */}
+         
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -437,7 +434,7 @@ const SignUpPage = () => {
           </div>
         </motion.div>
 
-        {/* Login Link */}
+    
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
