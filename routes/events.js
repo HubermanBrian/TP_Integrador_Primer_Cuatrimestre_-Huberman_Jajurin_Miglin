@@ -118,14 +118,14 @@ router.post('/', async (req, res) => {
     const result = await db.insert('events', {
       name,
       description,
-      id_event_category,
-      id_event_location,
+      category_id: id_event_category,
+      location_id: id_event_location,
       start_date,
       duration_in_minutes,
       price,
       enabled_for_enrollment,
       max_assistance,
-      id_creator_user
+      creator_id: id_creator_user
     });
     
     res.status(201).json(result.rows[0]);
@@ -143,14 +143,14 @@ router.put('/:id', async (req, res) => {
     const result = await db.update('events', {
       name,
       description,
-      id_event_category,
-      id_event_location,
+      category_id: id_event_category,
+      location_id: id_event_location,
       start_date,
       duration_in_minutes,
       price,
       enabled_for_enrollment,
       max_assistance,
-      id_creator_user
+      creator_id: id_creator_user
     }, { id: req.params.id });
     
     if (result.rows.length === 0) {

@@ -51,7 +51,7 @@ class ApiService {
 
   async getEvents(params = {}) {
     const queryString = new URLSearchParams(params).toString();
-    return this.request(`/event?${queryString}`);
+    return this.request(`/events?${queryString}`);
   }
 
   async getEventById(id) {

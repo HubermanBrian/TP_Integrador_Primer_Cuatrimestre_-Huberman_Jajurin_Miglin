@@ -120,43 +120,53 @@ const select = async (table, columns = '*', conditions = {}) => {
 // Función para obtener eventos con filtros
 const getEvents = async (filters = {}) => {
   try {
+    // Usar consulta simple basada en el esquema real de la base de datos
     let query = supabase
       .from('events')
       .select(`
         *,
-        event_categories(name),
-        event_locations(
-          *,
-          locations(
-            *,
-            provinces(*)
-          )
-        ),
-        users!events_id_creator_user_fkey(
-          id,
-          first_name,
-          last_name,
-          username
-        )
+        event_categories(name)
       `);
-
-    // Aplicar filtros
+    
+    // Aplicar filtros usando los nombres de columnas correctos
     if (filters.category) {
-      query = query.eq('id_event_category', filters.category);
+      query = query.eq('category_id', filters.category);
     }
     if (filters.location) {
-      query = query.eq('id_event_location', filters.location);
+      query = query.eq('location_id', filters.location);
     }
     if (filters.creator) {
-      query = query.eq('id_creator_user', filters.creator);
+      query = query.eq('creator_id', filters.creator);
     }
     if (filters.enabled !== undefined) {
       query = query.eq('enabled_for_enrollment', filters.enabled);
     }
 
     const { data, error } = await query;
-    
-    if (error) throw error;
+    if (error) {
+      // Si falla el join, intentar sin él
+      let simpleQuery = supabase
+        .from('events')
+        .select('*');
+      
+      // Aplicar filtros
+      if (filters.category) {
+        simpleQuery = simpleQuery.eq('category_id', filters.category);
+      }
+      if (filters.location) {
+        simpleQuery = simpleQuery.eq('location_id', filters.location);
+      }
+      if (filters.creator) {
+        simpleQuery = simpleQuery.eq('creator_id', filters.creator);
+      }
+      if (filters.enabled !== undefined) {
+        simpleQuery = simpleQuery.eq('enabled_for_enrollment', filters.enabled);
+      }
+      
+      const { data: simpleData, error: simpleError } = await simpleQuery;
+      if (simpleError) throw simpleError;
+      return { rows: simpleData || [] };
+    }
     
     return { rows: data || [] };
   } catch (error) {
@@ -172,18 +182,19 @@ const getUserCreatedEvents = async (userId) => {
       .from('events')
       .select(`
         *,
-        event_categories(name),
-        event_locations(
-          *,
-          locations(
-            *,
-            provinces(*)
-          )
-        )
+        event_categories(name)
       `)
-      .eq('id_creator_user', userId);
+      .eq('creator_id', userId);
     
-    if (error) throw error;
+    if (error) {
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('creator_id', userId);
+      
+      if (simpleError) throw simpleError;
+      return { rows: simpleData || [] };
+    }
     
     return { rows: data || [] };
   } catch (error) {
@@ -201,19 +212,23 @@ const getUserJoinedEvents = async (userId) => {
         *,
         events(
           *,
-          event_categories(name),
-          event_locations(
-            *,
-            locations(
-              *,
-              provinces(*)
-            )
-          )
+          event_categories(name)
         )
       `)
       .eq('id_user', userId);
     
-    if (error) throw error;
+    if (error) {
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('event_enrollments')
+        .select(`
+          *,
+          events(*)
+        `)
+        .eq('id_user', userId);
+      
+      if (simpleError) throw simpleError;
+      return { rows: simpleData || [] };
+    }
     
     return { rows: data || [] };
   } catch (error) {
@@ -229,28 +244,21 @@ const getEventById = async (eventId) => {
       .from('events')
       .select(`
         *,
-        event_categories(name),
-        event_locations(
-          *,
-          locations(
-            *,
-            provinces(*)
-          )
-        ),
-        users!events_id_creator_user_fkey(
-          id,
-          first_name,
-          last_name,
-          username
-        ),
-        event_tags(
-          tags(*)
-        )
+        event_categories(name)
       `)
       .eq('id', eventId)
       .single();
     
-    if (error) throw error;
+    if (error) {
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+      
+      if (simpleError) throw simpleError;
+      return { rows: [simpleData] };
+    }
     
     return { rows: [data] };
   } catch (error) {
