@@ -40,13 +40,10 @@ export default function ExplorarEventosPage() {
           params.tag = filtros.tag;
         }
         
-        const [eventsData, tagsData] = await Promise.all([
-          apiService.getEvents(params),
-          apiService.getTags()
-        ]);
+        const eventsData = await apiService.getEvents(params);
         
         setEventos(eventsData);
-        setTags(tagsData);
+        setTags([]); // Por ahora, no hay tags disponibles
         setError(null);
       } catch (err) {
         console.error('Error loading data:', err);
@@ -91,6 +88,7 @@ export default function ExplorarEventosPage() {
               placeholder="Buscar por nombre..."
             />
           </div>
+          {/* Filtro de tags temporalmente deshabilitado
           <div className="relative w-full md:w-1/3">
             <Tag className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
             <select
@@ -105,6 +103,7 @@ export default function ExplorarEventosPage() {
               ))}
             </select>
           </div>
+          */}
           <div className="relative w-full md:w-1/3">
             <Calendar className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
             <input

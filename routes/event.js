@@ -109,6 +109,23 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/event/tags - obtener todos los tags
+router.get('/tags', async (req, res) => {
+    try {
+        const { data: tags, error } = await db.supabase
+            .from('tags')
+            .select('*')
+            .order('name');
+        
+        if (error) throw error;
+        
+        res.json(tags || []);
+    } catch (err) {
+        console.error('Error getting tags:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // GET /api/event/:id - Obtener evento específico
 router.get('/:id', async (req, res) => {
     const eventId = req.params.id;
@@ -520,16 +537,6 @@ router.delete('/:id/enrollment', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Error al remover inscripción:', err);
         res.status(500).json({ message: "Database error" });
-    }
-});
-
-// GET /api/event/tags - obtener todos los tags
-router.get('/tags', async (req, res) => {
-    try {
-        const { rows: tags } = await db.query('SELECT * FROM tags ORDER BY name');
-        res.json(tags);
-    } catch (err) {
-        res.status(500).json({ error: 'Database error' });
     }
 });
 
